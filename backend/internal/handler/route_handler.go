@@ -10,10 +10,10 @@ import (
 )
 
 type RouteHandler struct {
-	mapsClient *maps.Client
+	mapsClient routeComputer
 }
 
-func NewRouteHandler(mapsClient *maps.Client) *RouteHandler {
+func NewRouteHandler(mapsClient routeComputer) *RouteHandler {
 	return &RouteHandler{mapsClient: mapsClient}
 }
 

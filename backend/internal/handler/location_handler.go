@@ -6,16 +6,15 @@ import (
 
 	"github.com/kento/driver/backend/internal/middleware"
 	"github.com/kento/driver/backend/internal/model"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type LocationHandler struct {
-	locationSvc *service.LocationService
-	vehicleSvc  *service.VehicleService
+	locationSvc locationService
+	vehicleSvc  vehicleService
 }
 
-func NewLocationHandler(locationSvc *service.LocationService, vehicleSvc *service.VehicleService) *LocationHandler {
+func NewLocationHandler(locationSvc locationService, vehicleSvc vehicleService) *LocationHandler {
 	return &LocationHandler{locationSvc: locationSvc, vehicleSvc: vehicleSvc}
 }
 

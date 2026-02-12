@@ -6,15 +6,14 @@ import (
 
 	"github.com/kento/driver/backend/internal/middleware"
 	"github.com/kento/driver/backend/internal/model"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type AttendanceHandler struct {
-	attendanceSvc *service.AttendanceService
+	attendanceSvc attendanceService
 }
 
-func NewAttendanceHandler(attendanceSvc *service.AttendanceService) *AttendanceHandler {
+func NewAttendanceHandler(attendanceSvc attendanceService) *AttendanceHandler {
 	return &AttendanceHandler{attendanceSvc: attendanceSvc}
 }
 

@@ -6,15 +6,14 @@ import (
 
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type AuthHandler struct {
-	authSvc *service.AuthService
+	authSvc authService
 }
 
-func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
+func NewAuthHandler(authSvc authService) *AuthHandler {
 	return &AuthHandler{authSvc: authSvc}
 }
 

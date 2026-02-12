@@ -9,17 +9,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/middleware"
 	"github.com/kento/driver/backend/internal/model"
-	"github.com/kento/driver/backend/internal/repository"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type AdminHandler struct {
-	userRepo *repository.UserRepo
-	auditSvc *service.AuditService
+	userRepo userRepository
+	auditSvc auditLogger
 }
 
-func NewAdminHandler(userRepo *repository.UserRepo, auditSvc *service.AuditService) *AdminHandler {
+func NewAdminHandler(userRepo userRepository, auditSvc auditLogger) *AdminHandler {
 	return &AdminHandler{userRepo: userRepo, auditSvc: auditSvc}
 }
 

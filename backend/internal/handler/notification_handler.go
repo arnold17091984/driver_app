@@ -6,15 +6,14 @@ import (
 
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
-	"github.com/kento/driver/backend/internal/repository"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type NotificationHandler struct {
-	userRepo *repository.UserRepo
+	userRepo userRepository
 }
 
-func NewNotificationHandler(userRepo *repository.UserRepo) *NotificationHandler {
+func NewNotificationHandler(userRepo userRepository) *NotificationHandler {
 	return &NotificationHandler{userRepo: userRepo}
 }
 

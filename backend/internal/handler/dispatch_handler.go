@@ -9,16 +9,15 @@ import (
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
 	"github.com/kento/driver/backend/internal/model"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type DispatchHandler struct {
-	dispatchSvc *service.DispatchService
-	vehicleSvc  *service.VehicleService
+	dispatchSvc dispatchService
+	vehicleSvc  vehicleService
 }
 
-func NewDispatchHandler(dispatchSvc *service.DispatchService, vehicleSvc *service.VehicleService) *DispatchHandler {
+func NewDispatchHandler(dispatchSvc dispatchService, vehicleSvc vehicleService) *DispatchHandler {
 	return &DispatchHandler{dispatchSvc: dispatchSvc, vehicleSvc: vehicleSvc}
 }
 

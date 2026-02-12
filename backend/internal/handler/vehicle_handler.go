@@ -14,17 +14,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type VehicleHandler struct {
-	vehicleSvc  *service.VehicleService
-	locationSvc *service.LocationService
+	vehicleSvc  vehicleService
+	locationSvc locationService
 	uploadDir   string
 }
 
-func NewVehicleHandler(vehicleSvc *service.VehicleService, locationSvc *service.LocationService, uploadDir string) *VehicleHandler {
+func NewVehicleHandler(vehicleSvc vehicleService, locationSvc locationService, uploadDir string) *VehicleHandler {
 	return &VehicleHandler{vehicleSvc: vehicleSvc, locationSvc: locationSvc, uploadDir: uploadDir}
 }
 

@@ -7,16 +7,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type ConflictHandler struct {
-	conflictSvc    *service.ConflictService
-	reservationSvc *service.ReservationService
+	conflictSvc    conflictService
+	reservationSvc reservationService
 }
 
-func NewConflictHandler(conflictSvc *service.ConflictService, reservationSvc *service.ReservationService) *ConflictHandler {
+func NewConflictHandler(conflictSvc conflictService, reservationSvc reservationService) *ConflictHandler {
 	return &ConflictHandler{conflictSvc: conflictSvc, reservationSvc: reservationSvc}
 }
 

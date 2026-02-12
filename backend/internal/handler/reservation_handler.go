@@ -9,16 +9,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/dto"
 	"github.com/kento/driver/backend/internal/middleware"
-	"github.com/kento/driver/backend/internal/service"
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
 type ReservationHandler struct {
-	reservationSvc *service.ReservationService
-	userSvc        *service.AuthService
+	reservationSvc reservationService
+	userSvc        authService
 }
 
-func NewReservationHandler(reservationSvc *service.ReservationService, userSvc *service.AuthService) *ReservationHandler {
+func NewReservationHandler(reservationSvc reservationService, userSvc authService) *ReservationHandler {
 	return &ReservationHandler{reservationSvc: reservationSvc, userSvc: userSvc}
 }
 
