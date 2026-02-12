@@ -43,6 +43,10 @@ func buildRouter(
 	fileServer := http.FileServer(http.Dir("./uploads"))
 	r.Handle("/uploads/*", http.StripPrefix("/uploads", fileServer))
 
+	// API documentation (Swagger UI)
+	r.Get("/api/docs", handler.SwaggerUI)
+	r.Get("/api/docs/openapi.yaml", handler.OpenAPISpec)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public auth endpoints
 		r.Post("/auth/login", authH.Login)

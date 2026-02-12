@@ -1,0 +1,1465 @@
+openapi: 3.0.3
+info:
+  title: FleetTrack API
+  description: Vehicle dispatch and fleet management API for taxi/hire car operators.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Development
+
+tags:
+  - name: Auth
+    description: Authentication and authorization
+  - name: Vehicles
+    description: Vehicle management and status
+  - name: Dispatches
+    description: Dispatch (trip) management
+  - name: Reservations
+    description: Advance booking and reservation management
+  - name: Bookings
+    description: Unified booking flow
+  - name: Conflicts
+    description: Reservation conflict resolution
+  - name: Attendance
+    description: Driver clock in/out and status
+  - name: Locations
+    description: Vehicle location tracking
+  - name: Admin
+    description: Admin-only user and audit management
+  - name: Driver
+    description: Driver-specific trip and reservation actions
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  # ── Auth ──────────────────────────────────────────
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Tokens and user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserInfo"
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: Logged out
+
+  # ── Vehicles ──────────────────────────────────────
+  /api/v1/vehicles:
+    get:
+      tags: [Vehicles]
+      summary: List all vehicles with status
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleWithStatus"
+    post:
+      tags: [Vehicles]
+      summary: Create vehicle (admin only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateVehicleRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+
+  /api/v1/vehicles/{id}:
+    get:
+      tags: [Vehicles]
+      summary: Get vehicle by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Vehicle details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vehicle"
+    put:
+      tags: [Vehicles]
+      summary: Update vehicle (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateVehicleRequest"
+      responses:
+        "204":
+          description: Updated
+    delete:
+      tags: [Vehicles]
+      summary: Delete vehicle (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/vehicles/{id}/maintenance:
+    patch:
+      tags: [Vehicles]
+      summary: Toggle maintenance mode (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleMaintenanceRequest"
+      responses:
+        "204":
+          description: Toggled
+
+  /api/v1/vehicles/{id}/photo:
+    post:
+      tags: [Vehicles]
+      summary: Upload vehicle photo (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Photo URL returned
+
+  /api/v1/vehicles/available:
+    get:
+      tags: [Vehicles]
+      summary: List available vehicles
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Available vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleWithStatus"
+
+  /api/v1/vehicles/{id}/location/history:
+    get:
+      tags: [Vehicles]
+      summary: Get location history for a vehicle
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Location history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleLocation"
+
+  /api/v1/vehicles/{id}/timeline:
+    get:
+      tags: [Vehicles]
+      summary: Get vehicle day timeline (dispatches + reservations)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Timeline entries
+
+  # ── Dispatches ────────────────────────────────────
+  /api/v1/dispatches:
+    get:
+      tags: [Dispatches]
+      summary: List dispatches
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [pending, assigned, accepted, en_route, arrived, completed, cancelled] }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Dispatch list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Dispatch"
+    post:
+      tags: [Dispatches]
+      summary: Create dispatch (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDispatchRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispatch"
+
+  /api/v1/dispatches/{id}:
+    get:
+      tags: [Dispatches]
+      summary: Get dispatch by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Dispatch details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispatch"
+
+  /api/v1/dispatches/{id}/assign:
+    post:
+      tags: [Dispatches]
+      summary: Assign vehicle to dispatch (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignDispatchRequest"
+      responses:
+        "204":
+          description: Assigned
+
+  /api/v1/dispatches/{id}/cancel:
+    post:
+      tags: [Dispatches]
+      summary: Cancel dispatch (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelDispatchRequest"
+      responses:
+        "204":
+          description: Cancelled
+
+  /api/v1/dispatches/{id}/eta:
+    get:
+      tags: [Dispatches]
+      summary: Get ETA snapshots for dispatch
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: ETA snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DispatchETASnapshot"
+
+  /api/v1/dispatches/quick-board:
+    post:
+      tags: [Dispatches]
+      summary: Quick board a passenger (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuickBoardRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispatch"
+
+  /api/v1/dispatches/calculate-eta:
+    post:
+      tags: [Dispatches]
+      summary: Calculate ETAs from pickup location (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateETARequest"
+      responses:
+        "200":
+          description: ETA list for available vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VehicleETA"
+
+  # ── Reservations ──────────────────────────────────
+  /api/v1/reservations:
+    get:
+      tags: [Reservations]
+      summary: List reservations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: vehicle_id
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Reservation list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReservationWithDetails"
+    post:
+      tags: [Reservations]
+      summary: Create reservation (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReservationRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reservation"
+
+  /api/v1/reservations/{id}:
+    get:
+      tags: [Reservations]
+      summary: Get reservation by ID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Reservation details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationWithDetails"
+    put:
+      tags: [Reservations]
+      summary: Update reservation (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReservationRequest"
+      responses:
+        "200":
+          description: Updated
+
+  /api/v1/reservations/{id}/cancel:
+    post:
+      tags: [Reservations]
+      summary: Cancel reservation (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelReservationRequest"
+      responses:
+        "204":
+          description: Cancelled
+
+  /api/v1/reservations/availability:
+    get:
+      tags: [Reservations]
+      summary: Check vehicle availability for time slot
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: start_time
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: end_time
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Available vehicle IDs
+
+  # ── Bookings ──────────────────────────────────────
+  /api/v1/bookings:
+    post:
+      tags: [Bookings]
+      summary: Create unified booking (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnifiedBookingRequest"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnifiedBookingResponse"
+
+  # ── Conflicts ─────────────────────────────────────
+  /api/v1/conflicts:
+    get:
+      tags: [Conflicts]
+      summary: List pending conflicts (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Conflict list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReservationConflict"
+
+  /api/v1/conflicts/{id}:
+    get:
+      tags: [Conflicts]
+      summary: Get conflict by ID (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Conflict details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReservationConflict"
+
+  /api/v1/conflicts/{id}/reassign:
+    post:
+      tags: [Conflicts]
+      summary: Resolve conflict by reassigning vehicle (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveConflictReassignRequest"
+      responses:
+        "204":
+          description: Resolved
+
+  /api/v1/conflicts/{id}/change-time:
+    post:
+      tags: [Conflicts]
+      summary: Resolve conflict by changing time (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveConflictChangeTimeRequest"
+      responses:
+        "204":
+          description: Resolved
+
+  /api/v1/conflicts/{id}/cancel:
+    post:
+      tags: [Conflicts]
+      summary: Resolve conflict by cancelling (dispatcher+)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveConflictCancelRequest"
+      responses:
+        "204":
+          description: Resolved
+
+  /api/v1/conflicts/{id}/force-assign:
+    post:
+      tags: [Conflicts]
+      summary: Force assign conflicting reservation (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForceAssignRequest"
+      responses:
+        "204":
+          description: Force assigned
+
+  # ── Attendance ────────────────────────────────────
+  /api/v1/attendance/clock-in:
+    post:
+      tags: [Attendance]
+      summary: Driver clock in
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Attendance record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverAttendance"
+
+  /api/v1/attendance/clock-out:
+    post:
+      tags: [Attendance]
+      summary: Driver clock out
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: Clocked out
+
+  /api/v1/attendance/status:
+    get:
+      tags: [Attendance]
+      summary: Get current attendance status
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Attendance status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attendance:
+                    $ref: "#/components/schemas/DriverAttendance"
+                  clocked_in:
+                    type: boolean
+
+  /api/v1/attendance/history:
+    get:
+      tags: [Attendance]
+      summary: Get attendance history
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Attendance records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DriverAttendance"
+
+  # ── Locations ─────────────────────────────────────
+  /api/v1/locations/report:
+    post:
+      tags: [Locations]
+      summary: Report location (driver only)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                points:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/LocationPoint"
+      responses:
+        "204":
+          description: Location recorded
+
+  # ── Driver ────────────────────────────────────────
+  /api/v1/driver/status:
+    put:
+      tags: [Driver]
+      summary: Update driver status
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, waiting]
+      responses:
+        "204":
+          description: Updated
+
+  /api/v1/driver/trips/current:
+    get:
+      tags: [Driver]
+      summary: Get current active trip
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current dispatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispatch"
+
+  /api/v1/driver/trips/{id}/accept:
+    post:
+      tags: [Driver]
+      summary: Accept assigned trip
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Accepted
+
+  /api/v1/driver/trips/{id}/en-route:
+    post:
+      tags: [Driver]
+      summary: Mark trip as en-route
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: En route
+
+  /api/v1/driver/trips/{id}/arrived:
+    post:
+      tags: [Driver]
+      summary: Mark trip as arrived
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Arrived
+
+  /api/v1/driver/board:
+    post:
+      tags: [Driver]
+      summary: Board passenger
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: Boarded
+
+  /api/v1/driver/trips/{id}/alight:
+    post:
+      tags: [Driver]
+      summary: Passenger alight
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Alighted
+
+  /api/v1/driver/trips/{id}/complete:
+    post:
+      tags: [Driver]
+      summary: Complete trip
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Completed
+
+  /api/v1/driver/reservations/pending:
+    get:
+      tags: [Driver]
+      summary: Get pending reservations for driver
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Pending reservations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReservationWithDetails"
+
+  /api/v1/driver/reservations/{id}/accept:
+    post:
+      tags: [Driver]
+      summary: Accept reservation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Accepted
+
+  /api/v1/driver/reservations/{id}/decline:
+    post:
+      tags: [Driver]
+      summary: Decline reservation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "204":
+          description: Declined
+
+  # ── Admin ─────────────────────────────────────────
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users (admin only)
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /api/v1/admin/users/{id}/role:
+    put:
+      tags: [Admin]
+      summary: Update user role (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, dispatcher, viewer, driver]
+      responses:
+        "204":
+          description: Updated
+
+  /api/v1/admin/users/{id}/priority:
+    put:
+      tags: [Admin]
+      summary: Update user priority level (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority_level]
+              properties:
+                priority_level:
+                  type: integer
+      responses:
+        "204":
+          description: Updated
+
+  /api/v1/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: List audit logs (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: actor_id
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - name: target_type
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+      responses:
+        "200":
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  /api/v1/admin/audit-logs/{id}:
+    get:
+      tags: [Admin]
+      summary: Get audit log by ID (admin only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "200":
+          description: Audit log entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLog"
+
+  # ── Routes ────────────────────────────────────────
+  /api/v1/routes/compute:
+    post:
+      tags: [Dispatches]
+      summary: Compute route via Google Routes API
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                origin:
+                  type: object
+                  properties:
+                    lat: { type: number }
+                    lng: { type: number }
+                destination:
+                  type: object
+                  properties:
+                    lat: { type: number }
+                    lng: { type: number }
+                intermediates:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      lat: { type: number }
+                      lng: { type: number }
+      responses:
+        "200":
+          description: Route with polyline and duration
+
+  # ── Notifications ─────────────────────────────────
+  /api/v1/notifications/fcm-token:
+    put:
+      tags: [Auth]
+      summary: Update FCM push token
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFCMTokenRequest"
+      responses:
+        "204":
+          description: Token updated
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    # ── Error ─────────────────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: UNAUTHORIZED
+            message:
+              type: string
+              example: authentication required
+
+    # ── Auth DTOs ─────────────────────────────────
+    LoginRequest:
+      type: object
+      required: [employee_id, password]
+      properties:
+        employee_id: { type: string, example: admin001 }
+        password: { type: string, example: password123 }
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        user:
+          $ref: "#/components/schemas/UserInfo"
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+
+    UserInfo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        employee_id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [admin, dispatcher, viewer, driver] }
+        priority_level: { type: integer }
+
+    UpdateFCMTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    # ── User ──────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        employee_id: { type: string }
+        name: { type: string }
+        role: { type: string, enum: [admin, dispatcher, viewer, driver] }
+        priority_level: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    # ── Vehicle ───────────────────────────────────
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        license_plate: { type: string }
+        driver_id: { type: string, format: uuid }
+        is_maintenance: { type: boolean }
+        photo_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    VehicleWithStatus:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Van A }
+        license_plate: { type: string, example: NCR-1001 }
+        driver_id: { type: string, format: uuid }
+        driver_name: { type: string }
+        is_maintenance: { type: boolean }
+        is_clocked_in: { type: boolean }
+        photo_url: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [available, driver_absent, reserved, in_trip, maintenance, stale_location, waiting]
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        heading: { type: number, nullable: true }
+        speed: { type: number, nullable: true }
+        location_at: { type: string, format: date-time, nullable: true }
+
+    CreateVehicleRequest:
+      type: object
+      required: [name, license_plate, driver_id]
+      properties:
+        name: { type: string }
+        license_plate: { type: string }
+        driver_id: { type: string, format: uuid }
+
+    UpdateVehicleRequest:
+      type: object
+      properties:
+        name: { type: string }
+        license_plate: { type: string }
+        driver_id: { type: string, format: uuid }
+
+    ToggleMaintenanceRequest:
+      type: object
+      properties:
+        is_maintenance: { type: boolean }
+
+    # ── Dispatch ──────────────────────────────────
+    Dispatch:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid, nullable: true }
+        requester_id: { type: string, format: uuid }
+        dispatcher_id: { type: string, format: uuid, nullable: true }
+        purpose: { type: string }
+        passenger_name: { type: string, nullable: true }
+        passenger_count: { type: integer }
+        notes: { type: string, nullable: true }
+        pickup_address: { type: string }
+        pickup_lat: { type: number, nullable: true }
+        pickup_lng: { type: number, nullable: true }
+        dropoff_address: { type: string, nullable: true }
+        dropoff_lat: { type: number, nullable: true }
+        dropoff_lng: { type: number, nullable: true }
+        status:
+          type: string
+          enum: [pending, assigned, accepted, en_route, arrived, completed, cancelled]
+        estimated_duration_sec: { type: integer, nullable: true }
+        estimated_distance_m: { type: integer, nullable: true }
+        assigned_at: { type: string, format: date-time, nullable: true }
+        accepted_at: { type: string, format: date-time, nullable: true }
+        en_route_at: { type: string, format: date-time, nullable: true }
+        arrived_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+        cancelled_at: { type: string, format: date-time, nullable: true }
+        estimated_end_at: { type: string, format: date-time, nullable: true }
+        cancel_reason: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    CreateDispatchRequest:
+      type: object
+      required: [purpose, pickup_address]
+      properties:
+        purpose: { type: string, example: Airport Transfer }
+        passenger_name: { type: string }
+        passenger_count: { type: integer, minimum: 1 }
+        notes: { type: string }
+        pickup_address: { type: string, example: Manila Hotel }
+        pickup_lat: { type: number }
+        pickup_lng: { type: number }
+        dropoff_address: { type: string }
+        dropoff_lat: { type: number }
+        dropoff_lng: { type: number }
+
+    AssignDispatchRequest:
+      type: object
+      required: [vehicle_id]
+      properties:
+        vehicle_id: { type: string, format: uuid }
+
+    CancelDispatchRequest:
+      type: object
+      properties:
+        reason: { type: string }
+
+    QuickBoardRequest:
+      type: object
+      required: [vehicle_id, passenger_name]
+      properties:
+        vehicle_id: { type: string, format: uuid }
+        passenger_name: { type: string }
+        passenger_count: { type: integer }
+        purpose: { type: string }
+        notes: { type: string }
+        estimated_minutes: { type: integer }
+
+    CalculateETARequest:
+      type: object
+      required: [pickup_lat, pickup_lng]
+      properties:
+        pickup_lat: { type: number }
+        pickup_lng: { type: number }
+
+    VehicleETA:
+      type: object
+      properties:
+        vehicle_id: { type: string, format: uuid }
+        vehicle_name: { type: string }
+        driver_name: { type: string }
+        plate: { type: string }
+        status: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        distance_m: { type: integer }
+        duration_sec: { type: integer }
+        is_available: { type: boolean }
+
+    DispatchETASnapshot:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dispatch_id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        vehicle_name: { type: string }
+        duration_sec: { type: integer }
+        distance_m: { type: integer }
+        calculated_at: { type: string, format: date-time }
+
+    # ── Reservation ───────────────────────────────
+    Reservation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        requester_id: { type: string, format: uuid }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        purpose: { type: string }
+        destinations: { type: array, items: { type: string } }
+        notes: { type: string, nullable: true }
+        passenger_name: { type: string, nullable: true }
+        pickup_address: { type: string, nullable: true }
+        pickup_lat: { type: number, nullable: true }
+        pickup_lng: { type: number, nullable: true }
+        priority_level: { type: integer }
+        status:
+          type: string
+          enum: [confirmed, pending_conflict, pending_driver, driver_declined, cancelled, completed]
+        cancel_reason: { type: string, nullable: true }
+        cancelled_by: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    ReservationWithDetails:
+      allOf:
+        - $ref: "#/components/schemas/Reservation"
+        - type: object
+          properties:
+            vehicle_name: { type: string }
+            requester_name: { type: string }
+            driver_name: { type: string }
+
+    CreateReservationRequest:
+      type: object
+      required: [vehicle_id, start_time, end_time, purpose]
+      properties:
+        vehicle_id: { type: string, format: uuid }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        purpose: { type: string }
+        destinations: { type: array, items: { type: string } }
+        notes: { type: string }
+
+    UpdateReservationRequest:
+      type: object
+      properties:
+        vehicle_id: { type: string, format: uuid }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        purpose: { type: string }
+        destinations: { type: array, items: { type: string } }
+        notes: { type: string }
+
+    CancelReservationRequest:
+      type: object
+      properties:
+        reason: { type: string }
+
+    # ── Conflict ──────────────────────────────────
+    ReservationConflict:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        winning_reservation_id: { type: string, format: uuid }
+        losing_reservation_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [pending, resolved_reassign, resolved_changed, resolved_cancelled, force_assigned]
+        resolved_by: { type: string, format: uuid, nullable: true }
+        resolution_reason: { type: string, nullable: true }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    ResolveConflictReassignRequest:
+      type: object
+      required: [new_vehicle_id]
+      properties:
+        new_vehicle_id: { type: string, format: uuid }
+        reason: { type: string }
+
+    ResolveConflictChangeTimeRequest:
+      type: object
+      required: [new_start_time, new_end_time]
+      properties:
+        new_start_time: { type: string, format: date-time }
+        new_end_time: { type: string, format: date-time }
+        reason: { type: string }
+
+    ResolveConflictCancelRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    ForceAssignRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    # ── Booking ───────────────────────────────────
+    UnifiedBookingRequest:
+      type: object
+      required: [mode, pickup_address, purpose]
+      properties:
+        mode: { type: string, enum: [specific, any] }
+        vehicle_id: { type: string, format: uuid }
+        is_now: { type: boolean }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        pickup_address: { type: string }
+        pickup_lat: { type: number }
+        pickup_lng: { type: number }
+        purpose: { type: string }
+        destinations: { type: array, items: { type: string } }
+        passenger_name: { type: string }
+        notes: { type: string }
+
+    UnifiedBookingResponse:
+      type: object
+      properties:
+        type: { type: string, enum: [dispatch, reservation] }
+        dispatch:
+          $ref: "#/components/schemas/Dispatch"
+        reservation:
+          $ref: "#/components/schemas/Reservation"
+
+    # ── Attendance ────────────────────────────────
+    DriverAttendance:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        driver_id: { type: string, format: uuid }
+        driver_status: { type: string, enum: [active, waiting] }
+        clock_in_at: { type: string, format: date-time }
+        clock_out_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    # ── Location ──────────────────────────────────
+    VehicleLocation:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        latitude: { type: number }
+        longitude: { type: number }
+        heading: { type: number, nullable: true }
+        speed: { type: number, nullable: true }
+        accuracy: { type: number, nullable: true }
+        recorded_at: { type: string, format: date-time }
+
+    LocationPoint:
+      type: object
+      required: [latitude, longitude, recorded_at]
+      properties:
+        latitude: { type: number }
+        longitude: { type: number }
+        heading: { type: number }
+        speed: { type: number }
+        accuracy: { type: number }
+        recorded_at: { type: string, format: date-time }
+
+    # ── Audit ─────────────────────────────────────
+    AuditLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        actor_id: { type: string, format: uuid }
+        actor_name: { type: string }
+        action: { type: string }
+        target_type: { type: string }
+        target_id: { type: string }
+        before_state: { type: object }
+        after_state: { type: object }
+        reason: { type: string, nullable: true }
+        ip_address: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
