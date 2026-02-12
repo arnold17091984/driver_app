@@ -40,7 +40,7 @@ export function AuditLogPage() {
     setLogs(data || []);
   };
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => { void (async () => { const data = await listAuditLogs({}); setLogs(data || []); })(); }, []);
 
   const tableHeaders: { key: string; label: string }[] = [
     { key: 'timestamp', label: t('auditLog.tableHeaderTimestamp') },

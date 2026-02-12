@@ -11,7 +11,7 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 
 ---
 
-## 1. バックエンド (Go) — 完成度: 95%
+## 1. バックエンド (Go) — 完成度: 98%
 
 ### 完了済み
 
@@ -20,21 +20,22 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 | API | 49エンドポイント実装済 (認証, ユーザー, 車両, 配車, 位置情報, 予約, ダッシュボード, 設定) |
 | 認証 | JWT (access + refresh token), RBAC (admin/dispatcher/driver) |
 | データベース | PostgreSQL + PostGIS, マイグレーション, シードデータ |
-| ミドルウェア | CORS, 認証, ロール別アクセス制御, リクエストログ |
+| ミドルウェア | CORS, 認証, ロール別アクセス制御, リクエストログ, レート制限 |
 | リアルタイム更新 | ポーリング (10-15秒間隔) による位置情報・配車通知 |
 | ファイル管理 | アバター画像アップロード (uploads/) |
+| テスト | 33ユニットテスト (JWT, 認証ミドルウェア, Config, Model, AppError, レート制限) |
+| APIドキュメント | OpenAPI 3.0 仕様 + Swagger UI (`/api/docs`) |
+| レート制限 | トークンバケット方式 (20 req/s, burst 40) per IP |
 
 ### 未完了
 
 | 項目 | 優先度 |
 |------|--------|
-| ユニットテスト / 統合テスト | 中 |
-| レート制限 | 低 |
-| APIドキュメント (Swagger) | 低 |
+| ハンドラー統合テスト | 中 |
 
 ---
 
-## 2. フロントエンド (React + TypeScript + Vite) — 完成度: 90%
+## 2. フロントエンド (React + TypeScript + Vite) — 完成度: 95%
 
 ### 完了済み
 
@@ -49,16 +50,17 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 | ユーザー管理 | 一覧, 登録, 編集, 削除 |
 | 設定 | 会社情報, システム設定 |
 | UI/UX | レスポンシブ, BottomSheet fitContent, 車両凡例, サイドバー |
+| エラーハンドリング | ErrorBoundary (グローバル) |
+| コード品質 | ESLint エラー 0件, TypeScript strict モード |
+
+### 補足: i18n (国際化) — 対応済み
+Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロケール読み込み・キャッシュ機構も実装済み。
 
 ### 未完了
 
 | 項目 | 優先度 |
 |------|--------|
 | E2Eテスト (Playwright等) | 低 |
-| エラーバウンダリ | 低 |
-
-### 補足: i18n (国際化) — 対応済み
-Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロケール読み込み・キャッシュ機構も実装済み。
 
 ---
 
@@ -88,7 +90,7 @@ Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロ
 
 ---
 
-## 4. インフラ — 完成度: 40%
+## 4. インフラ — 完成度: 60%
 
 ### 完了済み
 
@@ -97,12 +99,12 @@ Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロ
 | Git | リポジトリ初期化, .gitignore設定済 |
 | 環境変数 | .env.example (バックエンド) |
 | Docker | docker-compose.yml (PostgreSQL + PostGIS) |
+| CI/CD | GitHub Actions (Go テスト+ビルド, React lint+ビルド) |
 
 ### 未完了
 
 | 項目 | 優先度 |
 |------|--------|
-| CI/CD (GitHub Actions) | 中 |
 | 本番デプロイ設定 | 中 |
 | HTTPS/TLS設定 | 中 |
 | 監視・ログ集約 | 低 |
@@ -116,4 +118,4 @@ Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロ
 | バックエンド | Go, Chi, sqlx, PostgreSQL, PostGIS, JWT |
 | フロントエンド | React 19, TypeScript, Vite, Zustand, Google Maps API, plain CSS (custom properties) |
 | モバイル | React Native 0.78, TypeScript, Zustand, React Navigation 7, EncryptedStorage |
-| インフラ | Docker Compose, PostgreSQL 16 + PostGIS |
+| インフラ | Docker Compose, PostgreSQL 16 + PostGIS, GitHub Actions CI |

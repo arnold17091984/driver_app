@@ -71,7 +71,7 @@ function VehicleManagement() {
     setUsers(u || []);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { void (async () => { const [v, u] = await Promise.all([listVehicles(), listUsers()]); setVehicles(v || []); setUsers(u || []); })(); }, []);
 
   const drivers = users.filter(u => u.role === 'driver');
   const assignedDriverIds = new Set(vehicles.map(v => v.driver_id));
@@ -307,7 +307,7 @@ function UserManagement() {
     setUsers(data || []);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { void (async () => { const data = await listUsers(); setUsers(data || []); })(); }, []);
 
   const handleRoleChange = async (userId: string, role: string) => {
     await updateUserRole(userId, role);

@@ -98,8 +98,9 @@ export function DriverPage() {
       setPurpose('');
       setEstimatedMinutes(60);
       await fetchTrip();
-    } catch (e: any) {
-      setError(e?.response?.data?.message || t('driver.boardError'));
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      setError(err?.response?.data?.message || t('driver.boardError'));
     } finally {
       setLoading(false);
     }
@@ -112,8 +113,9 @@ export function DriverPage() {
     try {
       await driverAlight(currentTrip.id);
       setCurrentTrip(null);
-    } catch (e: any) {
-      setError(e?.response?.data?.message || t('driver.alightError'));
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } } };
+      setError(err?.response?.data?.message || t('driver.alightError'));
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,9 @@ import { useEffect, useRef } from 'react';
 
 export function usePolling(fetchFn: () => Promise<void>, intervalMs: number, enabled = true) {
   const savedFn = useRef(fetchFn);
-  savedFn.current = fetchFn;
+  useEffect(() => {
+    savedFn.current = fetchFn;
+  }, [fetchFn]);
 
   useEffect(() => {
     if (!enabled) return;

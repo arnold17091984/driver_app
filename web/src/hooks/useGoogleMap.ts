@@ -15,7 +15,7 @@ function loadGoogleMaps(): Promise<void> {
 
   loadPromise = new Promise<void>((resolve, reject) => {
     // Google Maps calls this callback on auth errors
-    (window as any).gm_authFailure = () => {
+    (window as unknown as Record<string, () => void>).gm_authFailure = () => {
       console.error('Google Maps AUTH FAILURE - check API key, billing, and enabled APIs');
     };
 

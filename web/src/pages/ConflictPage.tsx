@@ -18,7 +18,7 @@ export function ConflictPage() {
     setConflicts(data || []);
   };
 
-  useEffect(() => { fetchConflicts(); }, []);
+  useEffect(() => { void (async () => { const data = await listConflicts(); setConflicts(data || []); })(); }, []);
 
   const handleViewDetail = async (id: string) => {
     const data = await getConflict(id);

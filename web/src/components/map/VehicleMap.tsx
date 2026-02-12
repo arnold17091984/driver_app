@@ -115,7 +115,9 @@ export function VehicleMap({ vehicles, dispatches = [], selectedVehicleId, onSel
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
   const onSelectRef = useRef(onSelectVehicle);
-  onSelectRef.current = onSelectVehicle;
+  useEffect(() => {
+    onSelectRef.current = onSelectVehicle;
+  }, [onSelectVehicle]);
 
   // Route overlay refs
   const polylinesRef = useRef<google.maps.Polyline[]>([]);
@@ -126,7 +128,9 @@ export function VehicleMap({ vehicles, dispatches = [], selectedVehicleId, onSel
   const bookingPolyRef = useRef<google.maps.Polyline | null>(null);
   const bookingDestMarkerRef = useRef<google.maps.Marker | null>(null);
   const onMapClickRef = useRef(onMapClick);
-  onMapClickRef.current = onMapClick;
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
 
   // Sync vehicle markers
   useEffect(() => {

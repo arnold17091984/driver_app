@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import type { Vehicle, Dispatch } from '../../types/api';
 import { VehicleStatusBadge } from './VehicleStatusBadge';
 import { formatRelative } from '../../utils/formatters';
@@ -17,12 +18,18 @@ function formatEndTime(isoStr: string): string {
 
 export function VehicleList({ vehicles, dispatches = [], selectedId, onSelect }: Props) {
   const { t, locale } = useI18nStore();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const getActiveDispatch = (vehicleId: string) =>
     dispatches.find(d => d.vehicle_id === vehicleId && ['assigned', 'accepted', 'en_route', 'arrived'].includes(d.status));
 
   function getTimeRemaining(isoStr: string): { text: string; overdue: boolean } {
-    const diff = new Date(isoStr).getTime() - Date.now();
+    const diff = new Date(isoStr).getTime() - now;
     if (diff <= 0) {
       const overMin = Math.ceil(-diff / 60000);
       return { text: t('format.overdue', { min: overMin }), overdue: true };
