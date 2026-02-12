@@ -15,6 +15,7 @@
     "@react-navigation/native-stack": "^7.0.0",
     "axios": "^1.7.0",
     "react": "19.0.0",
+    "react-dom": "19.0.0",
     "react-native": "0.78.0",
     "react-native-encrypted-storage": "^4.0.0",
     "react-native-maps": "^1.18.0",
