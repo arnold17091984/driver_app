@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build outputs
+/backend/bin/
+/server
+/web/dist/
+/mobile/android/app/build/
+/mobile/ios/build/
+
+# Uploads
+/uploads/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+__debug_bin*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Mobile
+/mobile/ios/Pods/
+/mobile/android/.gradle/
+/mobile/android/local.properties
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase-admin-key.json

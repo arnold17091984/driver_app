@@ -1,0 +1,13 @@
+DROP TABLE IF EXISTS notification_logs;
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS reservation_conflicts;
+DROP TABLE IF EXISTS reservations;
+DROP TABLE IF EXISTS dispatch_eta_snapshots;
+DROP TABLE IF EXISTS dispatches;
+DROP TABLE IF EXISTS vehicle_location_current;
+DROP TABLE IF EXISTS vehicle_locations;
+DROP TABLE IF EXISTS driver_attendance;
+DROP TABLE IF EXISTS vehicles;
+DROP TABLE IF EXISTS users;
+DROP EXTENSION IF EXISTS postgis;
+DROP EXTENSION IF EXISTS pgcrypto;

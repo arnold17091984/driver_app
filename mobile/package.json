@@ -1,0 +1,30 @@
+{
+  "name": "driver-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "react-native start",
+    "ios": "react-native run-ios",
+    "android": "react-native run-android",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "19.0.0",
+    "react-native": "0.78.0",
+    "@react-navigation/native": "^7.0.0",
+    "@react-navigation/native-stack": "^7.0.0",
+    "react-native-screens": "^4.0.0",
+    "react-native-safe-area-context": "^5.0.0",
+    "@react-native-firebase/app": "^21.0.0",
+    "@react-native-firebase/messaging": "^21.0.0",
+    "axios": "^1.7.0",
+    "zustand": "^5.0.0",
+    "react-native-encrypted-storage": "^4.0.0",
+    "date-fns": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.9.0"
+  },
+  "note": "Run `npx react-native@latest init DriverApp` to generate native projects (ios/android), then copy src/ files"
+}
