@@ -10,6 +10,9 @@ importers:
 
   mobile:
     dependencies:
+      '@babel/runtime':
+        specifier: ^7.25.0
+        version: 7.28.6
       '@react-native-community/geolocation':
         specifier: ^3.4.0
         version: 3.4.0(react-native@0.78.0(@babel/core@7.29.0)(@babel/preset-env@7.29.0(@babel/core@7.29.0))(@react-native-community/cli-server-api@15.0.1)(@types/react@19.2.14)(react@19.0.0))(react@19.0.0)
@@ -50,9 +53,6 @@ importers:
       '@babel/preset-env':
         specifier: ^7.25.3
         version: 7.29.0(@babel/core@7.29.0)
-      '@babel/runtime':
-        specifier: ^7.25.0
-        version: 7.28.6
       '@react-native-community/cli':
         specifier: 15.0.1
         version: 15.0.1(typescript@5.0.4)
