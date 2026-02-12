@@ -59,7 +59,7 @@ Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロ
 
 ---
 
-## 3. モバイルアプリ (React Native 0.78) — 完成度: 60%
+## 3. モバイルアプリ (React Native 0.78) — 完成度: 70%
 
 ### 完了済み
 
@@ -72,13 +72,13 @@ Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロ
 | 位置情報 | @react-native-community/geolocation, 15秒間隔レポート |
 | 通知 | Firebase未設定時のグレースフルフォールバック |
 | ネイティブ | iOS/Androidプロジェクト生成済み, npm install完了 |
+| iOS ビルド | pod install完了, Simulatorビルド成功 (iPhone 17 Pro / iOS 26.2) |
 
 ### 未完了
 
 | 項目 | 優先度 |
 |------|--------|
-| pod install (Xcode必要) | **高** |
-| iOSビルド・実機テスト | **高** |
+| iOS 実機テスト | 高 |
 | バックグラウンド位置情報 | 中 |
 | プッシュ通知 (Firebase設定) | 中 |
 | アプリアイコン・スプラッシュ | 低 |
