@@ -1,6 +1,11 @@
 import type en from './en';
 
-export type Translations = typeof en;
+/** Widen literal string types so translation files can use any string value. */
+type DeepStringify<T> = {
+  [K in keyof T]: T[K] extends Record<string, unknown> ? DeepStringify<T[K]> : string;
+};
+
+export type Translations = DeepStringify<typeof en>;
 
 export type Locale = 'en' | 'ja' | 'ko' | 'zh';
 

@@ -4,7 +4,7 @@ import { useI18nStore } from '../../stores/i18nStore';
 import { calculateETAs } from '../../api/dispatches';
 import { listDispatches } from '../../api/dispatches';
 import { listReservations } from '../../api/reservations';
-import type { Dispatch, Reservation, VehicleETA } from '../../types/api';
+import type { Dispatch, Reservation } from '../../types/api';
 
 /**
  * Booking flow rendered inside BottomSheet / side panel.
@@ -273,7 +273,7 @@ function PickupPanel() {
   const { t } = useI18nStore();
   const {
     origin, destination, pickupDetails, setPickupDetails,
-    setAvailableVehicles, setStep, reset,
+    setAvailableVehicles, setStep,
   } = useBookingStore();
   const [isLoading, setIsLoading] = useState(false);
 

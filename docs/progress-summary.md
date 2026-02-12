@@ -21,7 +21,7 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 | 認証 | JWT (access + refresh token), RBAC (admin/dispatcher/driver) |
 | データベース | PostgreSQL + PostGIS, マイグレーション, シードデータ |
 | ミドルウェア | CORS, 認証, ロール別アクセス制御, リクエストログ |
-| WebSocket | リアルタイム位置情報・配車通知 |
+| リアルタイム更新 | ポーリング (10-15秒間隔) による位置情報・配車通知 |
 | ファイル管理 | アバター画像アップロード (uploads/) |
 
 ### 未完了
@@ -56,7 +56,9 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 |------|--------|
 | E2Eテスト (Playwright等) | 低 |
 | エラーバウンダリ | 低 |
-| i18n (国際化) | 低 |
+
+### 補足: i18n (国際化) — 対応済み
+Web フロントエンドは 4言語対応済み (en / ja / ko / zh)。動的ロケール読み込み・キャッシュ機構も実装済み。
 
 ---
 
@@ -111,7 +113,7 @@ FleetTrackはタクシー/ハイヤー事業者向けの車両配車・運行管
 
 | レイヤー | 技術 |
 |---------|------|
-| バックエンド | Go, Gin, GORM, PostgreSQL, PostGIS, JWT, WebSocket |
-| フロントエンド | React 19, TypeScript, Vite, Zustand, Google Maps API, TailwindCSS |
+| バックエンド | Go, Chi, sqlx, PostgreSQL, PostGIS, JWT |
+| フロントエンド | React 19, TypeScript, Vite, Zustand, Google Maps API, plain CSS (custom properties) |
 | モバイル | React Native 0.78, TypeScript, Zustand, React Navigation 7, EncryptedStorage |
 | インフラ | Docker Compose, PostgreSQL 16 + PostGIS |

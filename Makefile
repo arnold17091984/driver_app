@@ -20,14 +20,13 @@ db-up:
 db-down:
 	docker compose down
 
+# NOTE: Migrations and seeds run automatically on server startup.
+# These targets are kept for documentation but just start the server.
 migrate-up:
-	cd backend && go run cmd/migrate/main.go up
-
-migrate-down:
-	cd backend && go run cmd/migrate/main.go down
+	@echo "Migrations run automatically on server start (make dev)"
 
 seed:
-	cd backend && go run cmd/migrate/main.go seed
+	@echo "Seed data is applied as migration 000002 on server start (make dev)"
 
 # Web
 web-dev:
