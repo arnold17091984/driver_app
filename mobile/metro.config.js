@@ -12,6 +12,7 @@ const config = {
       path.resolve(monorepoRoot, 'node_modules'),
     ],
     disableHierarchicalLookup: true,
+    unstable_enableSymlinks: true,
     unstable_enablePackageExports: true,
     unstable_conditionNames: ['react-native', 'browser', 'require', 'import'],
   },

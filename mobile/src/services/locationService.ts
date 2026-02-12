@@ -1,19 +1,29 @@
 /**
- * Foreground Location Service
+ * Location Service with Background Support
  *
- * Uses React Native's built-in Geolocation API for location tracking.
+ * iOS: Uses Background Mode "location" + Always authorization
+ * Android: Uses react-native-background-actions for foreground service
+ *
  * Sends location updates to the backend every 15 seconds while tracking is active.
  */
 
 import { Platform, PermissionsAndroid } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
+import BackgroundService from 'react-native-background-actions';
 import client, { getAccessToken } from './apiClient';
 
 let watchId: number | null = null;
-let intervalId: ReturnType<typeof setInterval> | null = null;
-let lastPosition: { latitude: number; longitude: number; heading: number; speed: number; accuracy: number } | null = null;
+let lastPosition: {
+  latitude: number;
+  longitude: number;
+  heading: number;
+  speed: number;
+  accuracy: number;
+} | null = null;
 
-async function requestPermission(): Promise<boolean> {
+// ── Permission Handling ──
+
+async function requestForegroundPermission(): Promise<boolean> {
   if (Platform.OS === 'ios') {
     return new Promise((resolve) => {
       Geolocation.requestAuthorization(
@@ -22,30 +32,53 @@ async function requestPermission(): Promise<boolean> {
       );
     });
   }
-  // Android
   const granted = await PermissionsAndroid.request(
     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+    {
+      title: '位置情報の許可',
+      message: '配車管理のために位置情報を使用します。',
+      buttonPositive: '許可する',
+    },
   );
   return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
+async function requestBackgroundPermission(): Promise<boolean> {
+  if (Platform.OS === 'ios') {
+    // iOS handles this via Info.plist + authorizationLevel: 'always'
+    return true;
+  }
+  // Android 10+ requires separate background permission
+  if (Platform.Version >= 29) {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+      {
+        title: 'バックグラウンド位置情報',
+        message: 'アプリがバックグラウンドでも位置情報を送信し続けるために許可が必要です。',
+        buttonPositive: '許可する',
+      },
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  }
+  return true;
+}
+
+// ── Configuration ──
+
 export async function configureBackgroundLocation() {
   Geolocation.setRNConfiguration({
     skipPermissionRequests: false,
-    authorizationLevel: 'whenInUse',
+    authorizationLevel: 'always',
     locationProvider: 'auto',
   });
-  console.log('Location service configured');
+  console.log('[Location] Service configured with always authorization');
 }
 
-export async function startTracking() {
-  const hasPermission = await requestPermission();
-  if (!hasPermission) {
-    console.warn('Location permission denied');
-    return;
-  }
+// ── Location Watching ──
 
-  // Watch position changes
+function startWatchingPosition() {
+  if (watchId !== null) return;
+
   watchId = Geolocation.watchPosition(
     (position) => {
       lastPosition = {
@@ -56,46 +89,144 @@ export async function startTracking() {
         accuracy: position.coords.accuracy,
       };
     },
-    (error) => console.warn('Location watch error:', error.message),
-    { enableHighAccuracy: true, distanceFilter: 20 },
+    (error) => console.warn('[Location] Watch error:', error.message),
+    {
+      enableHighAccuracy: true,
+      distanceFilter: 20,
+      interval: 10000,
+      fastestInterval: 5000,
+    },
   );
-
-  // Send location to backend every 15 seconds
-  intervalId = setInterval(() => {
-    if (lastPosition && getAccessToken()) {
-      sendLocation(lastPosition).catch(() => {});
-    }
-  }, 15000);
-
-  console.log('Location tracking started');
 }
 
-export function stopTracking() {
+function stopWatchingPosition() {
   if (watchId !== null) {
     Geolocation.clearWatch(watchId);
     watchId = null;
   }
-  if (intervalId !== null) {
-    clearInterval(intervalId);
-    intervalId = null;
+}
+
+// ── Backend Reporting ──
+
+async function sendLocation(pos: NonNullable<typeof lastPosition>) {
+  try {
+    await client.post('/locations/report', {
+      points: [{
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        heading: pos.heading,
+        speed: pos.speed,
+        accuracy: pos.accuracy,
+        recorded_at: new Date().toISOString(),
+      }],
+    });
+  } catch (err: any) {
+    console.warn('[Location] Send failed:', err.message);
   }
+}
+
+// ── Background Task (Android) ──
+
+const BACKGROUND_TASK_OPTIONS = {
+  taskName: 'LocationTracking',
+  taskTitle: 'FleetTrack - 位置情報送信中',
+  taskDesc: 'バックグラウンドで位置情報を送信しています',
+  taskIcon: { name: 'ic_launcher', type: 'mipmap' },
+  color: '#1e293b',
+  parameters: { delay: 15000 },
+};
+
+async function backgroundTask(params: { delay: number }) {
+  await new Promise<void>(async (resolve) => {
+    startWatchingPosition();
+
+    const loop = async () => {
+      while (BackgroundService.isRunning()) {
+        if (lastPosition && getAccessToken()) {
+          await sendLocation(lastPosition);
+        }
+        await sleep(params.delay);
+      }
+      resolve();
+    };
+    loop();
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── iOS Background Loop ──
+
+let iosIntervalId: ReturnType<typeof setInterval> | null = null;
+
+function startIOSBackgroundLoop() {
+  if (iosIntervalId !== null) return;
+  iosIntervalId = setInterval(() => {
+    if (lastPosition && getAccessToken()) {
+      sendLocation(lastPosition);
+    }
+  }, 15000);
+}
+
+function stopIOSBackgroundLoop() {
+  if (iosIntervalId !== null) {
+    clearInterval(iosIntervalId);
+    iosIntervalId = null;
+  }
+}
+
+// ── Public API ──
+
+export async function startTracking() {
+  const hasForeground = await requestForegroundPermission();
+  if (!hasForeground) {
+    console.warn('[Location] Foreground permission denied');
+    return;
+  }
+
+  const hasBackground = await requestBackgroundPermission();
+  if (!hasBackground) {
+    console.warn('[Location] Background permission denied, using foreground only');
+  }
+
+  if (Platform.OS === 'android') {
+    // Android: use foreground service via BackgroundService
+    try {
+      await BackgroundService.start(backgroundTask, BACKGROUND_TASK_OPTIONS);
+      console.log('[Location] Android background service started');
+    } catch (err: any) {
+      console.warn('[Location] Background service failed, falling back to foreground:', err.message);
+      startWatchingPosition();
+      startIOSBackgroundLoop();
+    }
+  } else {
+    // iOS: watchPosition continues in background with Background Mode enabled
+    startWatchingPosition();
+    startIOSBackgroundLoop();
+    console.log('[Location] iOS background tracking started');
+  }
+}
+
+export async function stopTracking() {
+  if (Platform.OS === 'android' && BackgroundService.isRunning()) {
+    await BackgroundService.stop();
+  }
+
+  stopWatchingPosition();
+  stopIOSBackgroundLoop();
   lastPosition = null;
-  console.log('Location tracking stopped');
+  console.log('[Location] Tracking stopped');
+}
+
+export function isTracking(): boolean {
+  if (Platform.OS === 'android') {
+    return BackgroundService.isRunning();
+  }
+  return watchId !== null;
 }
 
 export function updateAuthToken() {
   // Token is read dynamically from getAccessToken(), no action needed
-}
-
-async function sendLocation(pos: NonNullable<typeof lastPosition>) {
-  await client.post('/locations/report', {
-    points: [{
-      latitude: pos.latitude,
-      longitude: pos.longitude,
-      heading: pos.heading,
-      speed: pos.speed,
-      accuracy: pos.accuracy,
-      recorded_at: new Date().toISOString(),
-    }],
-  });
 }
