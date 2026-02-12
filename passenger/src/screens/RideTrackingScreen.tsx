@@ -20,24 +20,17 @@ type AppStackParamList = {
 
 type Props = NativeStackScreenProps<AppStackParamList, 'RideTracking'>;
 
-const STATUS_LABELS: Record<DispatchStatus, string> = {
-  pending: 'Finding a driver...',
-  assigned: 'Driver assigned',
-  accepted: 'Driver is on the way',
-  en_route: 'Driver is heading to pickup',
-  arrived: 'Driver has arrived',
-  completed: 'Ride completed',
-  cancelled: 'Ride cancelled',
-};
-
-const STATUS_COLORS: Record<DispatchStatus, string> = {
-  pending: '#f39c12',
-  assigned: '#3498db',
-  accepted: '#2ecc71',
-  en_route: '#1a73e8',
-  arrived: '#27ae60',
-  completed: '#666',
-  cancelled: '#e74c3c',
+const STATUS_CONFIG: Record<
+  DispatchStatus,
+  {label: string; color: string; bg: string}
+> = {
+  pending: {label: 'Finding a driver...', color: '#d97706', bg: '#fffbeb'},
+  assigned: {label: 'Driver assigned', color: '#2563eb', bg: '#eff6ff'},
+  accepted: {label: 'Driver is on the way', color: '#16a34a', bg: '#f0fdf4'},
+  en_route: {label: 'Heading to pickup', color: '#2563eb', bg: '#eff6ff'},
+  arrived: {label: 'Driver has arrived', color: '#16a34a', bg: '#f0fdf4'},
+  completed: {label: 'Ride completed', color: '#64748b', bg: '#f8fafc'},
+  cancelled: {label: 'Ride cancelled', color: '#dc2626', bg: '#fef2f2'},
 };
 
 export default function RideTrackingScreen({route, navigation}: Props) {
@@ -56,13 +49,11 @@ export default function RideTrackingScreen({route, navigation}: Props) {
     return () => stopPolling();
   }, [rideId, fetchCurrentRide, pollDriverLocation, stopPolling]);
 
-  // Also poll for ride status updates
   useEffect(() => {
     const interval = setInterval(fetchCurrentRide, 10000);
     return () => clearInterval(interval);
   }, [fetchCurrentRide]);
 
-  // Navigate back when ride is completed or cancelled
   useEffect(() => {
     if (
       currentRide &&
@@ -89,9 +80,10 @@ export default function RideTrackingScreen({route, navigation}: Props) {
             await cancelRide(rideId);
             navigation.goBack();
           } catch (err: any) {
-            const msg =
-              err.response?.data?.error?.message || 'Failed to cancel ride';
-            Alert.alert('Error', msg);
+            Alert.alert(
+              'Error',
+              err.response?.data?.error?.message || 'Failed to cancel ride',
+            );
           }
         },
       },
@@ -100,6 +92,7 @@ export default function RideTrackingScreen({route, navigation}: Props) {
 
   const status = currentRide?.status ?? 'pending';
   const canCancel = status === 'pending' || status === 'assigned';
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
 
   const mapRegion = driverLocation
     ? {
@@ -124,13 +117,11 @@ export default function RideTrackingScreen({route, navigation}: Props) {
 
   return (
     <View style={styles.container}>
-      {/* Map showing driver location */}
       <MapView
         style={styles.map}
         provider={PROVIDER_DEFAULT}
         region={mapRegion}
         showsUserLocation>
-        {/* Pickup marker */}
         {currentRide?.pickup_lat && currentRide?.pickup_lng && (
           <Marker
             coordinate={{
@@ -138,11 +129,9 @@ export default function RideTrackingScreen({route, navigation}: Props) {
               longitude: currentRide.pickup_lng,
             }}
             title="Pickup"
-            pinColor="#1a73e8"
+            pinColor="#2563eb"
           />
         )}
-
-        {/* Driver location marker */}
         {driverLocation && (
           <Marker
             coordinate={{
@@ -150,34 +139,37 @@ export default function RideTrackingScreen({route, navigation}: Props) {
               longitude: driverLocation.longitude,
             }}
             title="Driver"
-            pinColor="#27ae60"
+            pinColor="#16a34a"
           />
         )}
       </MapView>
 
-      {/* Status card */}
+      {/* Status card (web-style panel) */}
       <View style={styles.statusCard}>
-        <View
-          style={[
-            styles.statusBadge,
-            {backgroundColor: STATUS_COLORS[status] || '#666'},
-          ]}>
-          <Text style={styles.statusBadgeText}>
-            {STATUS_LABELS[status] || status}
+        {/* Status badge */}
+        <View style={[styles.statusBadge, {backgroundColor: config.bg}]}>
+          <View
+            style={[styles.statusDot, {backgroundColor: config.color}]}
+          />
+          <Text style={[styles.statusText, {color: config.color}]}>
+            {config.label}
           </Text>
         </View>
 
+        {/* Searching spinner */}
         {status === 'pending' && (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color="#f39c12" />
-            <Text style={styles.loadingText}>
-              Looking for available drivers...
+          <View style={styles.searchingContainer}>
+            <ActivityIndicator size="large" color="#16a34a" />
+            <Text style={styles.searchingTitle}>Looking for drivers</Text>
+            <Text style={styles.searchingSubtitle}>
+              This usually takes a few moments...
             </Text>
           </View>
         )}
 
+        {/* Ride info (web info-box style) */}
         {currentRide && (
-          <View style={styles.rideInfo}>
+          <View style={styles.infoBox}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Pickup</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
@@ -195,17 +187,19 @@ export default function RideTrackingScreen({route, navigation}: Props) {
           </View>
         )}
 
+        {/* Cancel button (web danger style) */}
         {canCancel && (
           <TouchableOpacity
             style={styles.cancelButton}
-            onPress={handleCancel}>
+            onPress={handleCancel}
+            activeOpacity={0.7}>
             <Text style={styles.cancelButtonText}>Cancel Ride</Text>
           </TouchableOpacity>
         )}
 
         {!canCancel && status !== 'completed' && status !== 'cancelled' && (
-          <Text style={styles.cantCancelText}>
-            Ride is in progress and cannot be cancelled
+          <Text style={styles.inProgressText}>
+            Ride is in progress
           </Text>
         )}
       </View>
@@ -216,6 +210,7 @@ export default function RideTrackingScreen({route, navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f1f5f9',
   },
   map: {
     flex: 1,
@@ -226,71 +221,92 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 24,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: -3},
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
     elevation: 10,
   },
   statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  statusBadgeText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     gap: 8,
+    marginBottom: 16,
   },
-  loadingText: {
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
     fontSize: 14,
-    color: '#888',
+    fontWeight: '600',
   },
-  rideInfo: {
+  searchingContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  searchingTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginTop: 12,
+  },
+  searchingSubtitle: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  infoBox: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
     marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   infoLabel: {
-    width: 60,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
+    color: '#94a3b8',
+    fontWeight: '500',
   },
   infoValue: {
     flex: 1,
-    fontSize: 15,
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+    textAlign: 'right',
+    marginLeft: 12,
   },
   cancelButton: {
-    backgroundColor: '#fee2e2',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 10,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#e74c3c',
-    fontSize: 16,
+    color: '#ef4444',
+    fontSize: 15,
     fontWeight: '600',
   },
-  cantCancelText: {
+  inProgressText: {
     fontSize: 13,
-    color: '#999',
+    color: '#94a3b8',
     textAlign: 'center',
     fontStyle: 'italic',
   },

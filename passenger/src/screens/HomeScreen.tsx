@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Dimensions,
   Animated,
   Keyboard,
 } from 'react-native';
@@ -16,9 +15,6 @@ import {useRideStore} from '../stores/rideStore';
 import {useAuthStore} from '../stores/authStore';
 import {getCurrentPosition} from '../services/locationService';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
-
-const {height: SCREEN_HEIGHT} = Dimensions.get('window');
-const SHEET_HEIGHT = 320;
 
 type AppStackParamList = {
   Home: undefined;
@@ -46,23 +42,17 @@ export default function HomeScreen({navigation}: Props) {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
 
-  // Fetch current location and check for active ride on mount
   useEffect(() => {
     getCurrentPosition().then(coords => {
       setUserLocation(coords);
       mapRef.current?.animateToRegion(
-        {
-          ...coords,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
+        {...coords, latitudeDelta: 0.01, longitudeDelta: 0.01},
         500,
       );
     });
     fetchCurrentRide();
   }, [fetchCurrentRide]);
 
-  // Navigate to tracking screen when ride becomes active
   useEffect(() => {
     if (
       currentRide &&
@@ -101,7 +91,6 @@ export default function HomeScreen({navigation}: Props) {
       Alert.alert('Error', 'Please enter a destination');
       return;
     }
-
     try {
       await requestRide(
         'Current Location',
@@ -115,15 +104,16 @@ export default function HomeScreen({navigation}: Props) {
       closeSheet();
       setDropoffAddress('');
     } catch (err: any) {
-      const msg =
-        err.response?.data?.error?.message || 'Failed to request ride';
-      Alert.alert('Error', msg);
+      Alert.alert(
+        'Error',
+        err.response?.data?.error?.message || 'Failed to request ride',
+      );
     }
   };
 
   const sheetTranslateY = sheetAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [SHEET_HEIGHT, 0],
+    outputRange: [400, 0],
   });
 
   return (
@@ -145,77 +135,108 @@ export default function HomeScreen({navigation}: Props) {
           <Marker
             coordinate={userLocation}
             title="Your Location"
-            pinColor="#1a73e8"
+            pinColor="#2563eb"
           />
         )}
       </MapView>
 
+      {/* Stats overlay (like web dashboard) */}
+      <View style={styles.statsOverlay}>
+        <View style={styles.statCard}>
+          <View style={[styles.statDot, {backgroundColor: '#16a34a'}]} />
+          <Text style={styles.statLabel}>Ready</Text>
+        </View>
+      </View>
+
       {/* Top bar */}
       <View style={styles.topBar}>
         <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => navigation.navigate('RideHistory')}>
-          <Text style={styles.historyButtonText}>History</Text>
+          style={styles.topButton}
+          onPress={() => navigation.navigate('RideHistory')}
+          activeOpacity={0.7}>
+          <Text style={styles.topButtonText}>History</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-          <Text style={styles.logoutButtonText}>Logout</Text>
+        <TouchableOpacity
+          style={styles.topButton}
+          onPress={logout}
+          activeOpacity={0.7}>
+          <Text style={[styles.topButtonText, {color: '#dc2626'}]}>
+            Logout
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Destination input bar */}
+      {/* "Where to?" search bar (like web booking FAB) */}
       {!showSheet && (
-        <View style={styles.searchBar}>
-          <TouchableOpacity style={styles.searchInput} onPress={openSheet}>
-            <Text style={styles.searchPlaceholder}>Where to?</Text>
+        <View style={styles.fabContainer}>
+          <TouchableOpacity
+            style={styles.fabButton}
+            onPress={openSheet}
+            activeOpacity={0.8}>
+            <Text style={styles.fabIcon}>📍</Text>
+            <Text style={styles.fabText}>Where to?</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Bottom sheet for ride request */}
+      {/* Booking bottom sheet (matches web BookingOverlay) */}
       {showSheet && (
         <Animated.View
           style={[
             styles.bottomSheet,
             {transform: [{translateY: sheetTranslateY}]},
           ]}>
-          <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Request a Ride</Text>
-
-          <View style={styles.sheetField}>
-            <Text style={styles.fieldLabel}>Pickup</Text>
-            <Text style={styles.fieldValue}>Current Location</Text>
-          </View>
-
-          <View style={styles.sheetField}>
-            <Text style={styles.fieldLabel}>Destination</Text>
-            <TextInput
-              style={styles.destinationInput}
-              placeholder="Enter destination address"
-              placeholderTextColor="#999"
-              value={dropoffAddress}
-              onChangeText={setDropoffAddress}
-              autoFocus
-            />
-          </View>
-
-          <View style={styles.sheetButtons}>
-            <TouchableOpacity style={styles.cancelButton} onPress={closeSheet}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+          {/* Header */}
+          <View style={styles.sheetHeader}>
             <TouchableOpacity
-              style={[
-                styles.requestButton,
-                isRequesting && styles.requestButtonDisabled,
-              ]}
-              onPress={handleRequestRide}
-              disabled={isRequesting}>
-              {isRequesting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.requestButtonText}>Request Ride</Text>
-              )}
+              style={styles.backButton}
+              onPress={closeSheet}
+              activeOpacity={0.7}>
+              <Text style={styles.backButtonText}>✕</Text>
             </TouchableOpacity>
+            <Text style={styles.sheetTitle}>Request a Ride</Text>
+            <View style={{width: 32}} />
           </View>
+
+          {/* Location inputs (like web BookingOverlay) */}
+          <View style={styles.locationContainer}>
+            <View style={styles.dotsColumn}>
+              <View style={[styles.locationDot, {backgroundColor: '#16a34a'}]} />
+              <View style={styles.locationLine} />
+              <View style={[styles.locationDot, {backgroundColor: '#ef4444'}]} />
+            </View>
+            <View style={styles.inputsColumn}>
+              <View style={styles.locationField}>
+                <Text style={styles.locationActive}>Current Location</Text>
+              </View>
+              <View style={styles.locationDivider} />
+              <TextInput
+                style={styles.locationInput}
+                placeholder="Enter destination address"
+                placeholderTextColor="#94a3b8"
+                value={dropoffAddress}
+                onChangeText={setDropoffAddress}
+                autoFocus
+              />
+            </View>
+          </View>
+
+          {/* Request button (like web "Book Vehicle" CTA) */}
+          <TouchableOpacity
+            style={[
+              styles.requestButton,
+              (!dropoffAddress.trim() || isRequesting) &&
+                styles.requestButtonDisabled,
+            ]}
+            onPress={handleRequestRide}
+            disabled={!dropoffAddress.trim() || isRequesting}
+            activeOpacity={0.8}>
+            {isRequesting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.requestButtonText}>Request Ride</Text>
+            )}
+          </TouchableOpacity>
         </Animated.View>
       )}
     </View>
@@ -225,158 +246,209 @@ export default function HomeScreen({navigation}: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f1f5f9',
   },
   map: {
     flex: 1,
   },
-  topBar: {
+  statsOverlay: {
     position: 'absolute',
     top: 60,
     left: 16,
+    flexDirection: 'row',
+    gap: 8,
+    zIndex: 10,
+  },
+  statCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  statDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 60,
     right: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 8,
+    zIndex: 10,
   },
-  historyButton: {
+  topButton: {
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 3,
   },
-  historyButtonText: {
-    fontSize: 14,
+  topButtonText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#333',
+    color: '#334155',
   },
-  logoutButton: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logoutButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#e74c3c',
-  },
-  searchBar: {
+  fabContainer: {
     position: 'absolute',
     bottom: 40,
     left: 16,
     right: 16,
   },
-  searchInput: {
-    backgroundColor: '#fff',
+  fabButton: {
+    backgroundColor: '#16a34a',
     borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    shadowColor: '#16a34a',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  searchPlaceholder: {
+  fabIcon: {
     fontSize: 18,
-    color: '#999',
-    fontWeight: '500',
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   bottomSheet: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: SHEET_HEIGHT,
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 24,
-    paddingTop: 12,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 40,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: -3},
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 10,
   },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#ddd',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  backButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#475569',
+    fontWeight: '600',
   },
   sheetTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 20,
+    color: '#0f172a',
   },
-  sheetField: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    color: '#888',
-    fontWeight: '600',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  fieldValue: {
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    padding: 12,
-  },
-  destinationInput: {
-    fontSize: 16,
-    color: '#333',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    padding: 12,
-  },
-  sheetButtons: {
+  locationContainer: {
     flexDirection: 'row',
-    marginTop: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 14,
     gap: 12,
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    paddingVertical: 14,
+  dotsColumn: {
     alignItems: 'center',
+    paddingTop: 6,
   },
-  cancelButtonText: {
-    fontSize: 16,
+  locationDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  locationLine: {
+    width: 2,
+    height: 24,
+    backgroundColor: '#cbd5e1',
+    marginVertical: 4,
+  },
+  inputsColumn: {
+    flex: 1,
+  },
+  locationField: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 2,
+    borderColor: '#16a34a',
+  },
+  locationActive: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#16a34a',
+  },
+  locationDivider: {
+    height: 8,
+  },
+  locationInput: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    color: '#0f172a',
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
   },
   requestButton: {
-    flex: 2,
-    backgroundColor: '#1a73e8',
+    backgroundColor: '#16a34a',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 20,
+    shadowColor: '#16a34a',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
   requestButtonDisabled: {
-    opacity: 0.7,
+    backgroundColor: '#94a3b8',
+    shadowColor: '#94a3b8',
   },
   requestButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
     color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
