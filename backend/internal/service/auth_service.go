@@ -90,3 +90,80 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 func (s *AuthService) GetUser(ctx context.Context, userID string) (*model.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
+
+func (s *AuthService) RegisterPassenger(ctx context.Context, req dto.PassengerRegisterRequest) (*dto.LoginResponse, error) {
+	// Check if phone number already exists
+	existing, err := s.userRepo.GetByPhoneNumber(ctx, req.PhoneNumber)
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+	if existing != nil {
+		return nil, apperror.New(409, "PHONE_EXISTS", "phone number already registered")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	user, err := s.userRepo.CreatePassenger(ctx, req.PhoneNumber, string(hash), req.Name)
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	accessToken, err := jwtpkg.GenerateAccessToken(s.jwtSecret, s.accessExpiry, user.ID, user.EmployeeID, string(user.Role))
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	refreshToken, err := jwtpkg.GenerateRefreshToken(s.jwtSecret, s.refreshExpiry, user.ID, user.EmployeeID, string(user.Role))
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	return &dto.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User: dto.UserInfo{
+			ID:         user.ID,
+			EmployeeID: user.EmployeeID,
+			Name:       user.Name,
+			Role:       string(user.Role),
+		},
+	}, nil
+}
+
+func (s *AuthService) LoginByPhone(ctx context.Context, req dto.PassengerLoginRequest) (*dto.LoginResponse, error) {
+	user, err := s.userRepo.GetByPhoneNumber(ctx, req.PhoneNumber)
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+	if user == nil || !user.IsActive {
+		return nil, apperror.ErrInvalidCredentials
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		return nil, apperror.ErrInvalidCredentials
+	}
+
+	accessToken, err := jwtpkg.GenerateAccessToken(s.jwtSecret, s.accessExpiry, user.ID, user.EmployeeID, string(user.Role))
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	refreshToken, err := jwtpkg.GenerateRefreshToken(s.jwtSecret, s.refreshExpiry, user.ID, user.EmployeeID, string(user.Role))
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	return &dto.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User: dto.UserInfo{
+			ID:         user.ID,
+			EmployeeID: user.EmployeeID,
+			Name:       user.Name,
+			Role:       string(user.Role),
+		},
+	}, nil
+}

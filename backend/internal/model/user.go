@@ -8,7 +8,8 @@ const (
 	RoleAdmin      Role = "admin"
 	RoleDispatcher Role = "dispatcher"
 	RoleViewer     Role = "viewer"
-	RoleDriver     Role = "driver"
+	RoleDriver    Role = "driver"
+	RolePassenger Role = "passenger"
 )
 
 type User struct {
@@ -18,6 +19,7 @@ type User struct {
 	Name          string    `db:"name" json:"name"`
 	Role          Role      `db:"role" json:"role"`
 	PriorityLevel int       `db:"priority_level" json:"priority_level"`
+	PhoneNumber   *string   `db:"phone_number" json:"phone_number,omitempty"`
 	FCMToken      *string   `db:"fcm_token" json:"-"`
 	IsActive      bool      `db:"is_active" json:"is_active"`
 	CreatedAt     time.Time `db:"created_at" json:"created_at"`
@@ -26,7 +28,7 @@ type User struct {
 
 func (r Role) IsValid() bool {
 	switch r {
-	case RoleAdmin, RoleDispatcher, RoleViewer, RoleDriver:
+	case RoleAdmin, RoleDispatcher, RoleViewer, RoleDriver, RolePassenger:
 		return true
 	}
 	return false

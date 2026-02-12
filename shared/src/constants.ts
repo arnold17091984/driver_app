@@ -3,6 +3,7 @@ export const ROLES = {
   DISPATCHER: 'dispatcher',
   VIEWER: 'viewer',
   DRIVER: 'driver',
+  PASSENGER: 'passenger',
 } as const;
 
 export const VEHICLE_STATUSES = {
@@ -50,6 +51,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   dispatcher: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P10'],
   viewer: ['P1'],
   driver: ['P1'],
+  passenger: [],
 };
 
 export const POLLING_INTERVALS = {

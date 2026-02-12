@@ -30,3 +30,25 @@ type UserInfo struct {
 type UpdateFCMTokenRequest struct {
 	Token string `json:"token" validate:"required"`
 }
+
+type PassengerRegisterRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required"`
+	Password    string `json:"password" validate:"required"`
+	Name        string `json:"name" validate:"required"`
+}
+
+type PassengerLoginRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required"`
+	Password    string `json:"password" validate:"required"`
+}
+
+type PassengerRideRequest struct {
+	PickupAddress  string   `json:"pickup_address" validate:"required"`
+	PickupLat      float64  `json:"pickup_lat" validate:"required"`
+	PickupLng      float64  `json:"pickup_lng" validate:"required"`
+	DropoffAddress string   `json:"dropoff_address,omitempty"`
+	DropoffLat     *float64 `json:"dropoff_lat,omitempty"`
+	DropoffLng     *float64 `json:"dropoff_lng,omitempty"`
+	PassengerName  string   `json:"passenger_name,omitempty"`
+	PassengerCount int      `json:"passenger_count,omitempty"`
+}

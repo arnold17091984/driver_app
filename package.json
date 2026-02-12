@@ -4,6 +4,9 @@
   "scripts": {
     "web:dev": "pnpm --filter web dev",
     "web:build": "pnpm --filter web build",
-    "shared:build": "pnpm --filter @driver/shared build"
+    "shared:build": "pnpm --filter @driver/shared build",
+    "passenger:ios": "pnpm --filter PassengerApp ios",
+    "passenger:android": "pnpm --filter PassengerApp android",
+    "passenger:start": "pnpm --filter PassengerApp start"
   }
 }

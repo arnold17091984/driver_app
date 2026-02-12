@@ -99,3 +99,8 @@ type auditLogger interface {
 type routeComputer interface {
 	ComputeRoute(ctx context.Context, origin, destination maps.LatLng, intermediates []maps.LatLng) (*maps.RouteResult, error)
 }
+
+type passengerAuthService interface {
+	RegisterPassenger(ctx context.Context, req dto.PassengerRegisterRequest) (*dto.LoginResponse, error)
+	LoginByPhone(ctx context.Context, req dto.PassengerLoginRequest) (*dto.LoginResponse, error)
+}

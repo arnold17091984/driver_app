@@ -23,6 +23,7 @@ func buildRouter(
 	notifH *handler.NotificationHandler,
 	routeH *handler.RouteHandler,
 	bookingH *handler.BookingHandler,
+	passengerH *handler.PassengerHandler,
 ) chi.Router {
 	r := chi.NewRouter()
 
@@ -51,6 +52,10 @@ func buildRouter(
 		// Public auth endpoints
 		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/refresh", authH.Refresh)
+
+		// Public passenger auth endpoints
+		r.Post("/auth/passenger/register", passengerH.Register)
+		r.Post("/auth/passenger/login", passengerH.Login)
 
 		// Authenticated routes
 		r.Group(func(r chi.Router) {
@@ -135,6 +140,18 @@ func buildRouter(
 
 				// Force assign (P8 - admin only)
 				r.Post("/conflicts/{id}/force-assign", conflictH.ForceAssign)
+			})
+
+			// Passenger only routes
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole("passenger"))
+
+				r.Post("/passenger/rides", passengerH.RequestRide)
+				r.Get("/passenger/rides/current", passengerH.GetCurrentRide)
+				r.Get("/passenger/rides/history", passengerH.GetRideHistory)
+				r.Post("/passenger/rides/{id}/cancel", passengerH.CancelRide)
+				r.Get("/passenger/rides/{id}/driver-location", passengerH.GetDriverLocation)
+				r.Post("/passenger/rides/{id}/rate", passengerH.RateRide)
 			})
 
 			// Driver only routes

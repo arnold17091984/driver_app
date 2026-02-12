@@ -78,13 +78,14 @@ func New(cfg *config.Config) (*http.Server, error) {
 	notifH := handler.NewNotificationHandler(userRepo)
 	routeH := handler.NewRouteHandler(mapsClient)
 	bookingH := handler.NewBookingHandler(bookingSvc, authSvc)
+	passengerH := handler.NewPassengerHandler(authSvc, dispatchSvc, locationSvc, bookingSvc)
 
 	// Router
 	router := buildRouter(
 		cfg.JWTSecret,
 		authH, vehicleH, dispatchH, reservationH, conflictH,
 		attendanceH, locationH, adminH, notifH, routeH,
-		bookingH,
+		bookingH, passengerH,
 	)
 
 	srv := &http.Server{
