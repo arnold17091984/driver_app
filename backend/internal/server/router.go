@@ -32,6 +32,7 @@ func buildRouter(
 	r.Use(middleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
 	r.Use(middleware.CORS)
+	r.Use(middleware.NewRateLimiter(20, 40).Limit) // 20 req/s per IP, burst 40
 
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
