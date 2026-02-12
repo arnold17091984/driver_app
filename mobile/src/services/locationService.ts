@@ -9,8 +9,12 @@
 
 import { Platform, PermissionsAndroid } from 'react-native';
 import Geolocation from '@react-native-community/geolocation';
-import BackgroundService from 'react-native-background-actions';
 import client, { getAccessToken } from './apiClient';
+
+// Only import on Android - iOS handles background location natively
+const BackgroundService = Platform.OS === 'android'
+  ? require('react-native-background-actions').default
+  : null;
 
 let watchId: number | null = null;
 let lastPosition: {
@@ -141,7 +145,7 @@ async function backgroundTask(params: { delay: number }) {
     startWatchingPosition();
 
     const loop = async () => {
-      while (BackgroundService.isRunning()) {
+      while (BackgroundService?.isRunning()) {
         if (lastPosition && getAccessToken()) {
           await sendLocation(lastPosition);
         }
@@ -191,7 +195,7 @@ export async function startTracking() {
     console.warn('[Location] Background permission denied, using foreground only');
   }
 
-  if (Platform.OS === 'android') {
+  if (Platform.OS === 'android' && BackgroundService) {
     // Android: use foreground service via BackgroundService
     try {
       await BackgroundService.start(backgroundTask, BACKGROUND_TASK_OPTIONS);
@@ -210,7 +214,7 @@ export async function startTracking() {
 }
 
 export async function stopTracking() {
-  if (Platform.OS === 'android' && BackgroundService.isRunning()) {
+  if (Platform.OS === 'android' && BackgroundService?.isRunning()) {
     await BackgroundService.stop();
   }
 
@@ -221,7 +225,7 @@ export async function stopTracking() {
 }
 
 export function isTracking(): boolean {
-  if (Platform.OS === 'android') {
+  if (Platform.OS === 'android' && BackgroundService) {
     return BackgroundService.isRunning();
   }
   return watchId !== null;
