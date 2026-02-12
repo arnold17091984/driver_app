@@ -1,10 +1,22 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
-// NOTE: Replace with your actual backend URL
-const API_BASE = 'http://localhost:8080';
+// iOS Simulator uses localhost, Android emulator uses 10.0.2.2
+// For real devices, set to your Mac's local IP address
+const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+let apiBase = `http://${DEFAULT_HOST}:8080`;
+
+// Override for real device testing
+export function setApiBase(host: string) {
+  apiBase = `http://${host}:8080`;
+  client.defaults.baseURL = `${apiBase}/api/v1`;
+}
+export function getApiBase() {
+  return apiBase;
+}
 
 const client = axios.create({
-  baseURL: `${API_BASE}/api/v1`,
+  baseURL: `${apiBase}/api/v1`,
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
@@ -41,7 +53,7 @@ client.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
       originalRequest._retry = true;
       try {
-        const { data } = await axios.post(`${API_BASE}/api/v1/auth/refresh`, {
+        const { data } = await axios.post(`${apiBase}/api/v1/auth/refresh`, {
           refresh_token: refreshToken,
         });
         accessToken = data.access_token;
@@ -49,7 +61,6 @@ client.interceptors.response.use(
         return client(originalRequest);
       } catch {
         clearTokens();
-        // Navigate to login will be handled by the store
       }
     }
 

@@ -1,11 +1,12 @@
 {
-  "name": "driver-mobile",
+  "name": "DriverApp",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "start": "react-native start",
     "ios": "react-native run-ios",
     "android": "react-native run-android",
+    "test": "jest",
     "lint": "eslint ."
   },
   "dependencies": {
@@ -15,16 +16,26 @@
     "@react-navigation/native-stack": "^7.0.0",
     "react-native-screens": "^4.0.0",
     "react-native-safe-area-context": "^5.0.0",
-    "@react-native-firebase/app": "^21.0.0",
-    "@react-native-firebase/messaging": "^21.0.0",
+    "@react-native-community/geolocation": "^3.4.0",
     "axios": "^1.7.0",
     "zustand": "^5.0.0",
     "react-native-encrypted-storage": "^4.0.0",
     "date-fns": "^4.0.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "15.0.1",
+    "@react-native-community/cli-platform-android": "15.0.1",
+    "@react-native-community/cli-platform-ios": "15.0.1",
+    "@react-native/babel-preset": "0.78.0",
+    "@react-native/metro-config": "0.78.0",
+    "@react-native/typescript-config": "0.78.0",
     "@types/react": "^19.0.0",
-    "typescript": "^5.9.0"
+    "typescript": "5.0.4"
   },
-  "note": "Run `npx react-native@latest init DriverApp` to generate native projects (ios/android), then copy src/ files"
+  "engines": {
+    "node": ">=18"
+  }
 }

@@ -1,13 +1,16 @@
 import React, { useEffect } from 'react';
 import { RootNavigator } from './navigation/RootNavigator';
+import { useAuthStore } from './stores/authStore';
 import { configureBackgroundLocation } from './services/locationService';
-import { setupNotifications } from './services/notificationService';
 
 export default function App() {
+  const restoreSession = useAuthStore((s) => s.restoreSession);
+
   useEffect(() => {
+    // Restore saved session on app start
+    restoreSession();
     configureBackgroundLocation();
-    setupNotifications();
-  }, []);
+  }, [restoreSession]);
 
   return <RootNavigator />;
 }

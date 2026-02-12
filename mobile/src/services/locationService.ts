@@ -1,59 +1,101 @@
 /**
- * Background Location Service
+ * Foreground Location Service
  *
- * Uses react-native-background-geolocation (Transistorsoft) for battery-efficient
- * background GPS tracking.
- *
- * SETUP REQUIRED:
- * 1. Install: yarn add react-native-background-geolocation
- * 2. Follow Transistorsoft setup guide for iOS and Android native configuration
- * 3. Set API_BASE to your server URL
+ * Uses React Native's built-in Geolocation API for location tracking.
+ * Sends location updates to the backend every 15 seconds while tracking is active.
  */
 
-import { getAccessToken } from './apiClient';
+import { Platform, PermissionsAndroid } from 'react-native';
+import Geolocation from '@react-native-community/geolocation';
+import client, { getAccessToken } from './apiClient';
 
-// This is a placeholder implementation. In production, replace with:
-// import BackgroundGeolocation from 'react-native-background-geolocation';
+let watchId: number | null = null;
+let intervalId: ReturnType<typeof setInterval> | null = null;
+let lastPosition: { latitude: number; longitude: number; heading: number; speed: number; accuracy: number } | null = null;
 
-const API_BASE = 'http://localhost:8080';
-
-export async function configureBackgroundLocation() {
-  // BackgroundGeolocation.ready({
-  //   desiredAccuracy: BackgroundGeolocation.DESIRED_ACCURACY_HIGH,
-  //   distanceFilter: 50,
-  //   stopTimeout: 5,
-  //   stationaryRadius: 100,
-  //   locationUpdateInterval: 30000,
-  //   fastestLocationUpdateInterval: 15000,
-  //   foregroundService: true,
-  //   notification: {
-  //     title: '車両位置送信中',
-  //     text: '位置情報を送信しています',
-  //   },
-  //   activityType: BackgroundGeolocation.ACTIVITY_TYPE_AUTOMOTIVE_NAVIGATION,
-  //   url: `${API_BASE}/api/v1/locations/report`,
-  //   headers: { Authorization: `Bearer ${getAccessToken()}` },
-  //   method: 'POST',
-  //   autoSync: true,
-  //   batchSync: true,
-  //   maxBatchSize: 10,
-  //   maxDaysToPersist: 1,
-  // });
-  console.log('Background location configured (placeholder)');
+async function requestPermission(): Promise<boolean> {
+  if (Platform.OS === 'ios') {
+    return new Promise((resolve) => {
+      Geolocation.requestAuthorization(
+        () => resolve(true),
+        () => resolve(false),
+      );
+    });
+  }
+  // Android
+  const granted = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+  );
+  return granted === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-export function startTracking() {
-  // BackgroundGeolocation.start();
-  console.log('Location tracking started (placeholder)');
+export async function configureBackgroundLocation() {
+  Geolocation.setRNConfiguration({
+    skipPermissionRequests: false,
+    authorizationLevel: 'whenInUse',
+    locationProvider: 'auto',
+  });
+  console.log('Location service configured');
+}
+
+export async function startTracking() {
+  const hasPermission = await requestPermission();
+  if (!hasPermission) {
+    console.warn('Location permission denied');
+    return;
+  }
+
+  // Watch position changes
+  watchId = Geolocation.watchPosition(
+    (position) => {
+      lastPosition = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        heading: position.coords.heading ?? 0,
+        speed: position.coords.speed ?? 0,
+        accuracy: position.coords.accuracy,
+      };
+    },
+    (error) => console.warn('Location watch error:', error.message),
+    { enableHighAccuracy: true, distanceFilter: 20 },
+  );
+
+  // Send location to backend every 15 seconds
+  intervalId = setInterval(() => {
+    if (lastPosition && getAccessToken()) {
+      sendLocation(lastPosition).catch(() => {});
+    }
+  }, 15000);
+
+  console.log('Location tracking started');
 }
 
 export function stopTracking() {
-  // BackgroundGeolocation.stop();
-  console.log('Location tracking stopped (placeholder)');
+  if (watchId !== null) {
+    Geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if (intervalId !== null) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+  lastPosition = null;
+  console.log('Location tracking stopped');
 }
 
 export function updateAuthToken() {
-  // BackgroundGeolocation.setConfig({
-  //   headers: { Authorization: `Bearer ${getAccessToken()}` },
-  // });
+  // Token is read dynamically from getAccessToken(), no action needed
+}
+
+async function sendLocation(pos: NonNullable<typeof lastPosition>) {
+  await client.post('/locations/report', {
+    points: [{
+      latitude: pos.latitude,
+      longitude: pos.longitude,
+      heading: pos.heading,
+      speed: pos.speed,
+      accuracy: pos.accuracy,
+      recorded_at: new Date().toISOString(),
+    }],
+  });
 }
