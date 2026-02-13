@@ -11,6 +11,7 @@ export function ConflictPage() {
   const isMobile = useIsMobile();
   const [conflicts, setConflicts] = useState<ReservationConflict[]>([]);
   const [detail, setDetail] = useState<ConflictDetail | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
   const isAdmin = usePermission('admin');
 
   const fetchConflicts = async () => {
@@ -21,8 +22,14 @@ export function ConflictPage() {
   useEffect(() => { void (async () => { const data = await listConflicts(); setConflicts(data || []); })(); }, []);
 
   const handleViewDetail = async (id: string) => {
-    const data = await getConflict(id);
-    setDetail(data);
+    setLoadingDetail(true);
+    setDetail(null);
+    try {
+      const data = await getConflict(id);
+      setDetail(data);
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
   const handleCancelLosing = async (conflictId: string) => {
@@ -97,6 +104,25 @@ export function ConflictPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Loading modal */}
+      {loadingDetail && !detail && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 100,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: 40,
+            boxShadow: '0 20px 50px rgba(0,0,0,0.15)',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: 500 }}>
+              {t('common.loading') || 'Loading...'}
+            </div>
+          </div>
         </div>
       )}
 

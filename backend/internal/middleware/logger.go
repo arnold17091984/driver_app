@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 type responseWriter struct {
@@ -23,6 +25,9 @@ func Logger(next http.Handler) http.Handler {
 
 		next.ServeHTTP(wrapped, r)
 
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, wrapped.status, time.Since(start))
+		reqID := chiMiddleware.GetReqID(r.Context())
+		log.Printf("[%s] %s %s %d %s remote=%s ua=%s",
+			reqID, r.Method, r.URL.Path, wrapped.status,
+			time.Since(start), r.RemoteAddr, r.UserAgent())
 	})
 }

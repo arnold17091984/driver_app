@@ -29,6 +29,7 @@ type dispatchService interface {
 	GetCurrentTripByDriverID(ctx context.Context, driverID string) (*model.Dispatch, error)
 	GetETASnapshots(ctx context.Context, dispatchID string) ([]model.DispatchETASnapshot, error)
 	CalculateETAs(ctx context.Context, pickupLat, pickupLng float64) ([]dto.VehicleETA, error)
+	RateDispatch(ctx context.Context, dispatchID string, rating int, comment string) error
 }
 
 type vehicleService interface {

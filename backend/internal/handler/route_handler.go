@@ -30,8 +30,8 @@ func (h *RouteHandler) ComputeRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Origin.Lat == 0 || req.Origin.Lng == 0 || req.Destination.Lat == 0 || req.Destination.Lng == 0 {
-		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "origin and destination lat/lng are required")
+	if !isValidGPSCoord(req.Origin.Lat, req.Origin.Lng) || !isValidGPSCoord(req.Destination.Lat, req.Destination.Lng) {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "origin and destination must have valid GPS coordinates")
 		return
 	}
 

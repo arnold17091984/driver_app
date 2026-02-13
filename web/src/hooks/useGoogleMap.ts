@@ -43,6 +43,15 @@ export function useGoogleMap(
     if (!containerRef.current) return;
     let cancelled = false;
 
+    // Listen for Google Maps auth failure (invalid API key, billing, etc.)
+    const prevHandler = (window as unknown as Record<string, (() => void) | undefined>).gm_authFailure;
+    (window as unknown as Record<string, () => void>).gm_authFailure = () => {
+      if (!cancelled) {
+        setError('Google Maps authentication failed. Check API key and billing.');
+      }
+      prevHandler?.();
+    };
+
     loadGoogleMaps().then(() => {
       if (cancelled || !containerRef.current) return;
       try {
@@ -64,6 +73,10 @@ export function useGoogleMap(
       cancelled = true;
       mapRef.current = null;
       setReady(false);
+      // Restore previous handler if any
+      if (prevHandler) {
+        (window as unknown as Record<string, () => void>).gm_authFailure = prevHandler;
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerRef]);

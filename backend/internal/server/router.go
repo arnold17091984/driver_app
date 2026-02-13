@@ -6,12 +6,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 
+	"github.com/kento/driver/backend/internal/config"
 	"github.com/kento/driver/backend/internal/handler"
 	"github.com/kento/driver/backend/internal/middleware"
 )
 
 func buildRouter(
-	jwtSecret string,
+	cfg *config.Config,
 	authH *handler.AuthHandler,
 	vehicleH *handler.VehicleHandler,
 	dispatchH *handler.DispatchHandler,
@@ -32,8 +33,8 @@ func buildRouter(
 	r.Use(chiMiddleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
-	r.Use(middleware.CORS)
-	r.Use(middleware.NewRateLimiter(20, 40).Limit) // 20 req/s per IP, burst 40
+	r.Use(middleware.NewCORS(cfg.CORSOrigins))
+	r.Use(middleware.NewRateLimiter(cfg.RateLimitRate, cfg.RateLimitBurst).Limit)
 
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +60,7 @@ func buildRouter(
 
 		// Authenticated routes
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.JWTAuth(jwtSecret))
+			r.Use(middleware.JWTAuth(cfg.JWTSecret))
 
 			// Auth
 			r.Get("/auth/me", authH.Me)

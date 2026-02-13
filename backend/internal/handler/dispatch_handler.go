@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/dto"
@@ -145,8 +144,14 @@ func (h *DispatchHandler) DriverBoard(w http.ResponseWriter, r *http.Request) {
 
 func (h *DispatchHandler) List(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, ok := parseIntParam(w, r, "limit", 0)
+	if !ok {
+		return
+	}
+	offset, ok := parseIntParam(w, r, "offset", 0)
+	if !ok {
+		return
+	}
 
 	dispatches, err := h.dispatchSvc.List(r.Context(), status, limit, offset)
 	if err != nil {
@@ -224,8 +229,8 @@ func (h *DispatchHandler) CalculateETAs(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.PickupLat == 0 || req.PickupLng == 0 {
-		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_lat and pickup_lng are required")
+	if !isValidGPSCoord(req.PickupLat, req.PickupLng) {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_lat and pickup_lng must be valid GPS coordinates")
 		return
 	}
 

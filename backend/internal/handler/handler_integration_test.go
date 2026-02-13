@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/dto"
@@ -45,152 +44,6 @@ func decodeError(t *testing.T, rec *httptest.ResponseRecorder) string {
 	}
 	json.NewDecoder(rec.Body).Decode(&resp)
 	return resp.Error.Code
-}
-
-// ---------- mock: authService ----------
-
-type mockAuthSvc struct {
-	loginFn   func(context.Context, dto.LoginRequest) (*dto.LoginResponse, error)
-	refreshFn func(context.Context, string) (*dto.RefreshResponse, error)
-	getUserFn func(context.Context, string) (*model.User, error)
-}
-
-func (m *mockAuthSvc) Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error) {
-	return m.loginFn(ctx, req)
-}
-func (m *mockAuthSvc) Refresh(ctx context.Context, rt string) (*dto.RefreshResponse, error) {
-	return m.refreshFn(ctx, rt)
-}
-func (m *mockAuthSvc) GetUser(ctx context.Context, id string) (*model.User, error) {
-	return m.getUserFn(ctx, id)
-}
-
-// ---------- mock: dispatchService ----------
-
-type mockDispatchSvc struct {
-	createFn        func(context.Context, dto.CreateDispatchRequest, string) (*model.Dispatch, error)
-	quickBoardFn    func(context.Context, dto.QuickBoardRequest, string) (*model.Dispatch, error)
-	getByIDFn       func(context.Context, string) (*model.Dispatch, error)
-	listFn          func(context.Context, string, int, int) ([]model.Dispatch, error)
-	assignFn        func(context.Context, string, string, string) error
-	updateStatusFn  func(context.Context, string, model.DispatchStatus, string) error
-	cancelFn        func(context.Context, string, string, string) error
-	currentTripFn   func(context.Context, string) (*model.Dispatch, error)
-	etaSnapshotsFn  func(context.Context, string) ([]model.DispatchETASnapshot, error)
-	calculateETAsFn func(context.Context, float64, float64) ([]dto.VehicleETA, error)
-}
-
-func (m *mockDispatchSvc) Create(ctx context.Context, req dto.CreateDispatchRequest, rid string) (*model.Dispatch, error) {
-	return m.createFn(ctx, req, rid)
-}
-func (m *mockDispatchSvc) QuickBoard(ctx context.Context, req dto.QuickBoardRequest, did string) (*model.Dispatch, error) {
-	return m.quickBoardFn(ctx, req, did)
-}
-func (m *mockDispatchSvc) GetByID(ctx context.Context, id string) (*model.Dispatch, error) {
-	return m.getByIDFn(ctx, id)
-}
-func (m *mockDispatchSvc) List(ctx context.Context, status string, limit, offset int) ([]model.Dispatch, error) {
-	return m.listFn(ctx, status, limit, offset)
-}
-func (m *mockDispatchSvc) Assign(ctx context.Context, did, vid, uid string) error {
-	return m.assignFn(ctx, did, vid, uid)
-}
-func (m *mockDispatchSvc) UpdateStatus(ctx context.Context, did string, s model.DispatchStatus, uid string) error {
-	return m.updateStatusFn(ctx, did, s, uid)
-}
-func (m *mockDispatchSvc) Cancel(ctx context.Context, did, reason, uid string) error {
-	return m.cancelFn(ctx, did, reason, uid)
-}
-func (m *mockDispatchSvc) GetCurrentTripByDriverID(ctx context.Context, did string) (*model.Dispatch, error) {
-	return m.currentTripFn(ctx, did)
-}
-func (m *mockDispatchSvc) GetETASnapshots(ctx context.Context, did string) ([]model.DispatchETASnapshot, error) {
-	return m.etaSnapshotsFn(ctx, did)
-}
-func (m *mockDispatchSvc) CalculateETAs(ctx context.Context, lat, lng float64) ([]dto.VehicleETA, error) {
-	return m.calculateETAsFn(ctx, lat, lng)
-}
-
-// ---------- mock: vehicleService ----------
-
-type mockVehicleSvc struct {
-	listWithStatusFn    func(context.Context) ([]model.VehicleWithStatus, error)
-	getByIDFn           func(context.Context, string) (*model.Vehicle, error)
-	getByDriverIDFn     func(context.Context, string) (*model.Vehicle, error)
-	listAvailableFn     func(context.Context) ([]model.VehicleWithStatus, error)
-	createFn            func(context.Context, string, string, string, string) (*model.Vehicle, error)
-	updateFn            func(context.Context, string, string, string, string, string) error
-	deleteFn            func(context.Context, string, string) error
-	updatePhotoURLFn    func(context.Context, string, *string) error
-	toggleMaintenanceFn func(context.Context, string, string, bool) error
-}
-
-func (m *mockVehicleSvc) ListWithStatus(ctx context.Context) ([]model.VehicleWithStatus, error) {
-	return m.listWithStatusFn(ctx)
-}
-func (m *mockVehicleSvc) GetByID(ctx context.Context, id string) (*model.Vehicle, error) {
-	return m.getByIDFn(ctx, id)
-}
-func (m *mockVehicleSvc) GetByDriverID(ctx context.Context, did string) (*model.Vehicle, error) {
-	return m.getByDriverIDFn(ctx, did)
-}
-func (m *mockVehicleSvc) ListAvailable(ctx context.Context) ([]model.VehicleWithStatus, error) {
-	return m.listAvailableFn(ctx)
-}
-func (m *mockVehicleSvc) Create(ctx context.Context, a, n, l, d string) (*model.Vehicle, error) {
-	return m.createFn(ctx, a, n, l, d)
-}
-func (m *mockVehicleSvc) Update(ctx context.Context, a, v, n, l, d string) error {
-	return m.updateFn(ctx, a, v, n, l, d)
-}
-func (m *mockVehicleSvc) Delete(ctx context.Context, a, v string) error {
-	return m.deleteFn(ctx, a, v)
-}
-func (m *mockVehicleSvc) UpdatePhotoURL(ctx context.Context, v string, u *string) error {
-	return m.updatePhotoURLFn(ctx, v, u)
-}
-func (m *mockVehicleSvc) ToggleMaintenance(ctx context.Context, a, v string, b bool) error {
-	return m.toggleMaintenanceFn(ctx, a, v, b)
-}
-
-// ---------- mock: attendanceService ----------
-
-type mockAttendanceSvc struct {
-	clockInFn      func(context.Context, string) (*model.DriverAttendance, error)
-	clockOutFn     func(context.Context, string) error
-	updateStatusFn func(context.Context, string, model.DriverStatus) (*model.DriverAttendance, error)
-	getStatusFn    func(context.Context, string) (*model.DriverAttendance, error)
-	getHistoryFn   func(context.Context, string, int) ([]model.DriverAttendance, error)
-}
-
-func (m *mockAttendanceSvc) ClockIn(ctx context.Context, did string) (*model.DriverAttendance, error) {
-	return m.clockInFn(ctx, did)
-}
-func (m *mockAttendanceSvc) ClockOut(ctx context.Context, did string) error {
-	return m.clockOutFn(ctx, did)
-}
-func (m *mockAttendanceSvc) UpdateDriverStatus(ctx context.Context, did string, s model.DriverStatus) (*model.DriverAttendance, error) {
-	return m.updateStatusFn(ctx, did, s)
-}
-func (m *mockAttendanceSvc) GetStatus(ctx context.Context, did string) (*model.DriverAttendance, error) {
-	return m.getStatusFn(ctx, did)
-}
-func (m *mockAttendanceSvc) GetHistory(ctx context.Context, did string, limit int) ([]model.DriverAttendance, error) {
-	return m.getHistoryFn(ctx, did, limit)
-}
-
-// ---------- mock: locationService ----------
-
-type mockLocationSvc struct {
-	reportFn     func(context.Context, string, []model.LocationPoint) error
-	getHistoryFn func(context.Context, string, time.Time, time.Time) ([]model.VehicleLocation, error)
-}
-
-func (m *mockLocationSvc) ReportLocations(ctx context.Context, vid string, pts []model.LocationPoint) error {
-	return m.reportFn(ctx, vid, pts)
-}
-func (m *mockLocationSvc) GetHistory(ctx context.Context, vid string, from, to time.Time) ([]model.VehicleLocation, error) {
-	return m.getHistoryFn(ctx, vid, from, to)
 }
 
 // ===================================================================
@@ -506,7 +359,7 @@ func TestDispatchCancel_Success(t *testing.T) {
 func TestDispatchCalculateETAs_ValidationError(t *testing.T) {
 	h := &DispatchHandler{}
 
-	body := `{"pickup_lat":0,"pickup_lng":0}`
+	body := `{"pickup_lat":999,"pickup_lng":0}`
 	req := httptest.NewRequest("POST", "/api/v1/dispatches/calculate-eta", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -538,7 +391,7 @@ func TestDispatchCalculateETAs_Success(t *testing.T) {
 
 func TestDispatchCurrentTrip_Success(t *testing.T) {
 	mock := &mockDispatchSvc{
-		currentTripFn: func(_ context.Context, did string) (*model.Dispatch, error) {
+		getCurrentTripFn: func(_ context.Context, did string) (*model.Dispatch, error) {
 			return &model.Dispatch{ID: "d-1", Status: model.DispatchStatusEnRoute}, nil
 		},
 	}
@@ -556,7 +409,7 @@ func TestDispatchCurrentTrip_Success(t *testing.T) {
 
 func TestDispatchCurrentTrip_NoTrip(t *testing.T) {
 	mock := &mockDispatchSvc{
-		currentTripFn: func(_ context.Context, _ string) (*model.Dispatch, error) {
+		getCurrentTripFn: func(_ context.Context, _ string) (*model.Dispatch, error) {
 			return nil, nil
 		},
 	}

@@ -1,0 +1,2 @@
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS rating INTEGER;
+ALTER TABLE dispatches ADD COLUMN IF NOT EXISTS rating_comment TEXT;

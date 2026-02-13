@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -37,6 +36,10 @@ func (h *PassengerHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	if req.PhoneNumber == "" || req.Password == "" || req.Name == "" {
 		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "phone_number, password, and name are required")
+		return
+	}
+	if !isValidPhoneNumber(req.PhoneNumber) {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "phone_number must be 7-15 digits, optionally starting with +")
 		return
 	}
 
@@ -91,8 +94,12 @@ func (h *PassengerHandler) RequestRide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.PickupAddress == "" || req.PickupLat == 0 || req.PickupLng == 0 {
-		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_address, pickup_lat, and pickup_lng are required")
+	if req.PickupAddress == "" {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_address is required")
+		return
+	}
+	if !isValidGPSCoord(req.PickupLat, req.PickupLng) {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_lat and pickup_lng must be valid GPS coordinates")
 		return
 	}
 
@@ -161,20 +168,16 @@ func (h *PassengerHandler) GetRideHistory(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	limitStr := r.URL.Query().Get("limit")
-	limit := 20
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
+	limit, ok := parseIntParam(w, r, "limit", 20)
+	if !ok {
+		return
 	}
-
-	offsetStr := r.URL.Query().Get("offset")
-	offset := 0
-	if offsetStr != "" {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
-			offset = o
-		}
+	offset, ok := parseIntParam(w, r, "offset", 0)
+	if !ok {
+		return
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
 	}
 
 	dispatches, err := h.dispatchSvc.List(r.Context(), "", limit, offset)
@@ -296,8 +299,6 @@ func (h *PassengerHandler) RateRide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Rating functionality - placeholder for now
-	// In a full implementation, this would store the rating in a ratings table
 	var req struct {
 		Rating  int    `json:"rating"`
 		Comment string `json:"comment"`
@@ -309,6 +310,11 @@ func (h *PassengerHandler) RateRide(w http.ResponseWriter, r *http.Request) {
 
 	if req.Rating < 1 || req.Rating > 5 {
 		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "rating must be between 1 and 5")
+		return
+	}
+
+	if err := h.dispatchSvc.RateDispatch(r.Context(), dispatchID, req.Rating, req.Comment); err != nil {
+		apperror.WriteError(w, apperror.ErrInternal)
 		return
 	}
 

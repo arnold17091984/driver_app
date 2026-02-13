@@ -4,7 +4,7 @@ import { useI18nStore } from '../../stores/i18nStore';
 import { calculateETAs } from '../../api/dispatches';
 import { listDispatches } from '../../api/dispatches';
 import { listReservations } from '../../api/reservations';
-import type { Dispatch, Reservation } from '../../types/api';
+
 
 /**
  * Booking flow rendered inside BottomSheet / side panel.
@@ -41,12 +41,19 @@ function DestinationPanel() {
   const [destQuery, setDestQuery] = useState('');
   const [useCurrentLocation, setUseCurrentLocation] = useState(true);
   const [recentLocations, setRecentLocations] = useState<BookingLocation[]>([]);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [recentError, setRecentError] = useState<string | null>(null);
 
   // Geolocation (only when using current location)
   useEffect(() => {
     if (!origin && useCurrentLocation) {
-      navigator.geolocation?.getCurrentPosition(
+      if (!navigator.geolocation) {
+        setGeoError(t('bookingFlow.geoError'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
         (pos) => {
+          setGeoError(null);
           setOrigin({
             name: t('bookingFlow.currentLocation'),
             address: t('bookingFlow.currentLocation'),
@@ -54,7 +61,9 @@ function DestinationPanel() {
             lng: pos.coords.longitude,
           });
         },
-        () => {},
+        () => {
+          setGeoError(t('bookingFlow.geoError'));
+        },
         { enableHighAccuracy: false, timeout: 5000 },
       );
     }
@@ -65,9 +74,10 @@ function DestinationPanel() {
     const locs: BookingLocation[] = [];
     const seen = new Set<string>();
     Promise.all([
-      listDispatches().catch(() => [] as Dispatch[]),
-      listReservations().catch(() => [] as Reservation[]),
+      listDispatches(),
+      listReservations(),
     ]).then(([dispatches, reservations]) => {
+      setRecentError(null);
       for (const d of (dispatches || []).slice(0, 10)) {
         if (d.pickup_address && !seen.has(d.pickup_address)) {
           seen.add(d.pickup_address);
@@ -85,7 +95,10 @@ function DestinationPanel() {
         }
       }
       setRecentLocations(locs.slice(0, 6));
+    }).catch(() => {
+      setRecentError(t('bookingFlow.recentLoadError'));
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const query = activeField === 'origin' ? originQuery : destQuery;
@@ -234,6 +247,26 @@ function DestinationPanel() {
         </button>
       )}
 
+      {/* Errors */}
+      {geoError && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 8,
+          background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+          fontSize: '0.8rem',
+        }}>
+          {geoError}
+        </div>
+      )}
+      {recentError && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 8,
+          background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+          fontSize: '0.8rem',
+        }}>
+          {recentError}
+        </div>
+      )}
+
       {/* Recent locations */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {filtered.map((loc, idx) => (
@@ -276,18 +309,21 @@ function PickupPanel() {
     setAvailableVehicles, setStep,
   } = useBookingStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [etaError, setEtaError] = useState<string | null>(null);
 
   const handleConfirm = async () => {
     if (!origin?.lat || !origin?.lng) return;
     setIsLoading(true);
+    setEtaError(null);
     try {
       const etas = await calculateETAs(origin.lat, origin.lng);
       setAvailableVehicles(etas.filter(v => v.is_available));
+      setIsLoading(false);
+      setStep('vehicle-select');
     } catch {
-      setAvailableVehicles([]);
+      setIsLoading(false);
+      setEtaError(t('bookingFlow.etaError'));
     }
-    setIsLoading(false);
-    setStep('vehicle-select');
   };
 
   return (
@@ -334,6 +370,16 @@ function PickupPanel() {
             onBlur={e => e.target.style.borderColor = '#e2e8f0'}
           />
         </>
+      )}
+
+      {etaError && (
+        <div style={{
+          padding: '8px 12px', borderRadius: 8,
+          background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626',
+          fontSize: '0.8rem',
+        }}>
+          {etaError}
+        </div>
       )}
 
       <button

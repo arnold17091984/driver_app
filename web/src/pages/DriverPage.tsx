@@ -34,16 +34,29 @@ export function DriverPage() {
   const [error, setError] = useState('');
   const { checkForNew: checkNewReservations } = useNotificationSound<Reservation>('urgent');
 
+  const [stale, setStale] = useState(false);
+
   const fetchTrip = useCallback(async () => {
-    const [trip, pending] = await Promise.all([
-      driverCurrentTrip(),
-      driverPendingReservations().catch(() => []),
-    ]);
-    setCurrentTrip(trip);
-    const pendingList = pending || [];
-    setPendingRes(pendingList);
-    checkNewReservations(pendingList);
-  }, [checkNewReservations]);
+    try {
+      const trip = await driverCurrentTrip();
+      setCurrentTrip(trip);
+      setStale(false);
+      setError('');
+    } catch {
+      setStale(true);
+      setError(t('driver.fetchError'));
+    }
+
+    try {
+      const pending = await driverPendingReservations();
+      const pendingList = pending || [];
+      setPendingRes(pendingList);
+      checkNewReservations(pendingList);
+    } catch {
+      // Keep previous pendingRes on failure; only mark stale
+      setStale(true);
+    }
+  }, [checkNewReservations, t]);
 
   usePolling(fetchTrip, 5000);
 
@@ -129,8 +142,14 @@ export function DriverPage() {
       height: '100%', padding: 24,
     }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
-        <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', margin: '0 0 24px' }}>
+        <h1 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', margin: '0 0 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
           {t('driver.title')}
+          {stale && (
+            <span style={{
+              display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
+              background: '#f59e0b', flexShrink: 0,
+            }} title={t('driver.fetchError')} />
+          )}
         </h1>
 
         {error && (

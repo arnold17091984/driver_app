@@ -5,6 +5,9 @@ interface Coords {
   longitude: number;
 }
 
+// Manila default coordinates for development fallback
+const MANILA_COORDS: Coords = {latitude: 14.5547, longitude: 121.0244};
+
 export async function requestLocationPermission(): Promise<boolean> {
   if (Platform.OS === 'ios') {
     // iOS permissions are handled via Info.plist + native prompt
@@ -33,8 +36,12 @@ export function getCurrentPosition(): Promise<Coords> {
     // Fallback: use navigator.geolocation if available
     const geo = Geolocation || (global as any).navigator?.geolocation;
     if (!geo) {
-      // Simulator fallback: Tokyo Station
-      resolve({latitude: 35.6812, longitude: 139.7671});
+      if (__DEV__) {
+        // Development fallback: Manila
+        resolve(MANILA_COORDS);
+      } else {
+        reject(new Error('Geolocation not available'));
+      }
       return;
     }
 
@@ -46,9 +53,13 @@ export function getCurrentPosition(): Promise<Coords> {
         });
       },
       (error: any) => {
-        // Fallback to Tokyo Station on error
-        console.warn('Geolocation error, using fallback:', error);
-        resolve({latitude: 35.6812, longitude: 139.7671});
+        console.warn('Geolocation error:', error);
+        if (__DEV__) {
+          // Development fallback: Manila
+          resolve(MANILA_COORDS);
+        } else {
+          reject(new Error(`Geolocation error: ${error?.message || 'unknown'}`));
+        }
       },
       {enableHighAccuracy: true, timeout: 10000, maximumAge: 5000},
     );

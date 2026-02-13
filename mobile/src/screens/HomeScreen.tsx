@@ -19,13 +19,15 @@ export function HomeScreen({ navigation }: any) {
   const { currentTrip, fetchCurrentTrip } = useTripStore();
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
 
   const checkAttendance = async () => {
     try {
       const { data } = await client.get<AttendanceStatus>('/attendance/status');
       setIsClockedIn(data.clocked_in);
+      setAttendanceError(null);
     } catch {
-      // Ignore
+      setAttendanceError('勤怠情報の取得に失敗しました');
     }
   };
 
@@ -49,9 +51,12 @@ export function HomeScreen({ navigation }: any) {
     try {
       await client.post('/attendance/clock-in');
       setIsClockedIn(true);
+      setAttendanceError(null);
       startTracking();
     } catch (e: any) {
-      Alert.alert('エラー', e.response?.data?.error?.message || '出勤処理に失敗しました');
+      const msg = e.response?.data?.error?.message || '出勤処理に失敗しました';
+      setAttendanceError(msg);
+      Alert.alert('エラー', msg);
     }
   };
 
@@ -65,9 +70,12 @@ export function HomeScreen({ navigation }: any) {
           try {
             await client.post('/attendance/clock-out');
             setIsClockedIn(false);
+            setAttendanceError(null);
             stopTracking();
           } catch (e: any) {
-            Alert.alert('エラー', e.response?.data?.error?.message || '退勤処理に失敗しました');
+            const msg = e.response?.data?.error?.message || '退勤処理に失敗しました';
+            setAttendanceError(msg);
+            Alert.alert('エラー', msg);
           }
         },
       },
@@ -104,6 +112,13 @@ export function HomeScreen({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
+      {/* Attendance Error Banner */}
+      {attendanceError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{attendanceError}</Text>
+        </View>
+      )}
+
       {/* Clock In/Out */}
       <TouchableOpacity
         style={[styles.clockButton, isClockedIn ? styles.clockOutButton : styles.clockInButton]}
@@ -132,6 +147,24 @@ export function HomeScreen({ navigation }: any) {
           <Text style={styles.tripAddress}>📍 {currentTrip.pickup_address}</Text>
           {currentTrip.dropoff_address && (
             <Text style={styles.tripAddress}>🏁 {currentTrip.dropoff_address}</Text>
+          )}
+          {(currentTrip.estimated_distance_m != null || currentTrip.estimated_duration_sec != null) && (
+            <View style={styles.etaRow}>
+              {currentTrip.estimated_distance_m != null && (
+                <Text style={styles.etaText}>
+                  🚗 {currentTrip.estimated_distance_m >= 1000
+                    ? `${(currentTrip.estimated_distance_m / 1000).toFixed(1)} km`
+                    : `${currentTrip.estimated_distance_m} m`}
+                </Text>
+              )}
+              {currentTrip.estimated_duration_sec != null && (
+                <Text style={styles.etaText}>
+                  ⏱ {currentTrip.estimated_duration_sec >= 3600
+                    ? `${Math.floor(currentTrip.estimated_duration_sec / 3600)}h${Math.floor((currentTrip.estimated_duration_sec % 3600) / 60)}m`
+                    : `${Math.ceil(currentTrip.estimated_duration_sec / 60)} min`}
+                </Text>
+              )}
+            </View>
           )}
           <Text style={styles.tapHint}>タップして詳細を表示 →</Text>
         </TouchableOpacity>
@@ -217,6 +250,19 @@ const styles = StyleSheet.create({
   statusText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   tripPurpose: { fontSize: 18, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
   tripAddress: { fontSize: 14, color: '#475569', marginBottom: 4 },
+  etaRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+  },
+  etaText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+  },
   tapHint: { fontSize: 13, color: '#3b82f6', marginTop: 8, fontWeight: '500' },
   noTrip: {
     margin: 20,
@@ -228,4 +274,14 @@ const styles = StyleSheet.create({
   },
   noTripText: { fontSize: 16, color: '#64748b', fontWeight: '500' },
   noTripSub: { fontSize: 13, color: '#94a3b8', marginTop: 4 },
+  errorBanner: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  errorBannerText: { color: '#92400e', fontSize: 14, fontWeight: '500' },
 });

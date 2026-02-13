@@ -64,6 +64,7 @@ function VehicleManagement() {
   const [form, setForm] = useState({ name: '', license_plate: '', driver_id: '' });
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
     const [v, u] = await Promise.all([listVehicles(), listUsers()]);
@@ -90,13 +91,18 @@ function VehicleManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editId) {
-      await updateVehicle(editId, form);
-    } else {
-      await createVehicle(form);
+    setSubmitting(true);
+    try {
+      if (editId) {
+        await updateVehicle(editId, form);
+      } else {
+        await createVehicle(form);
+      }
+      setShowForm(false);
+      fetchData();
+    } finally {
+      setSubmitting(false);
     }
-    setShowForm(false);
-    fetchData();
   };
 
   const handleDelete = async (id: string) => {
@@ -164,10 +170,11 @@ function VehicleManagement() {
                 padding: '10px 20px', background: '#f1f5f9', color: '#475569',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
               }}>{t('common.cancel')}</button>
-              <button type="submit" style={{
-                padding: '10px 24px', background: '#2563eb', color: '#fff',
-                border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit',
-              }}>{editId ? t('settings.saveChanges') : t('settings.addVehicle')}</button>
+              <button type="submit" disabled={submitting} style={{
+                padding: '10px 24px', background: submitting ? '#93c5fd' : '#2563eb', color: '#fff',
+                border: 'none', borderRadius: 8, cursor: submitting ? 'wait' : 'pointer', fontWeight: 600, fontFamily: 'inherit',
+                opacity: submitting ? 0.7 : 1,
+              }}>{submitting ? (editId ? t('settings.saving') || 'Saving...' : t('settings.adding') || 'Adding...') : (editId ? t('settings.saveChanges') : t('settings.addVehicle'))}</button>
             </div>
           </form>
         </div>

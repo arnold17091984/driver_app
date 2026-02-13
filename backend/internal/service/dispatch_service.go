@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"math"
-	"math/rand"
 	"time"
 
 	"github.com/kento/driver/backend/internal/dto"
@@ -76,7 +75,7 @@ func (s *DispatchService) QuickBoard(ctx context.Context, req dto.QuickBoardRequ
 
 	purpose := req.Purpose
 	if purpose == "" {
-		purpose = "乗車"
+		purpose = "boarding"
 	}
 	count := req.PassengerCount
 	if count <= 0 {
@@ -89,7 +88,7 @@ func (s *DispatchService) QuickBoard(ctx context.Context, req dto.QuickBoardRequ
 		PassengerName:  &req.PassengerName,
 		PassengerCount: count,
 		Notes:          req.Notes,
-		PickupAddress:  "（ルート未定）",
+		PickupAddress:  "(quick board)",
 	}
 	if req.EstimatedMinutes > 0 {
 		endAt := time.Now().Add(time.Duration(req.EstimatedMinutes) * time.Minute)
@@ -194,6 +193,10 @@ func (s *DispatchService) GetCurrentTripByDriverID(ctx context.Context, driverID
 	return s.repo.GetActiveByDriverID(ctx, driverID)
 }
 
+func (s *DispatchService) RateDispatch(ctx context.Context, dispatchID string, rating int, comment string) error {
+	return s.repo.RateDispatch(ctx, dispatchID, rating, comment)
+}
+
 func (s *DispatchService) GetETASnapshots(ctx context.Context, dispatchID string) ([]model.DispatchETASnapshot, error) {
 	return s.repo.GetETASnapshots(ctx, dispatchID)
 }
@@ -211,6 +214,9 @@ func (s *DispatchService) CalculateETAs(ctx context.Context, pickupLat, pickupLn
 	offsets := [][2]float64{{0.005, 0.003}, {-0.003, 0.008}, {0.008, -0.004}, {-0.006, -0.006}, {0.002, 0.012}}
 
 	var results []dto.VehicleETA
+	// Fixed average speed for Manila traffic: ~18 km/h
+	const avgSpeedKmh = 18.0
+
 	for i, v := range vehicles {
 		vLat := v.Latitude
 		vLng := v.Longitude
@@ -224,11 +230,9 @@ func (s *DispatchService) CalculateETAs(ctx context.Context, pickupLat, pickupLn
 		}
 
 		distM := haversineDistance(*vLat, *vLng, pickupLat, pickupLng)
-		// Manila average traffic speed: 15-25 km/h, simulate with some randomness
-		speedKmh := 15.0 + rand.Float64()*10.0
-		durationSec := int(math.Round(distM / (speedKmh * 1000 / 3600)))
+		durationSec := int(math.Round(distM / (avgSpeedKmh * 1000 / 3600)))
 		if durationSec < 60 {
-			durationSec = 60 + rand.Intn(120) // minimum 1-3 min
+			durationSec = 60 // minimum 1 min
 		}
 
 		results = append(results, dto.VehicleETA{

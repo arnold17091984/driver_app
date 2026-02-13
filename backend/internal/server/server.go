@@ -82,7 +82,7 @@ func New(cfg *config.Config) (*http.Server, error) {
 
 	// Router
 	router := buildRouter(
-		cfg.JWTSecret,
+		cfg,
 		authH, vehicleH, dispatchH, reservationH, conflictH,
 		attendanceH, locationH, adminH, notifH, routeH,
 		bookingH, passengerH,

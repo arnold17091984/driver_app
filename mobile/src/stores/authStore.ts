@@ -33,7 +33,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       await EncryptedStorage.setItem('access_token', data.access_token);
       await EncryptedStorage.setItem('refresh_token', data.refresh_token);
 
-      setupNotifications();
+      try {
+        setupNotifications();
+      } catch (e) {
+        console.warn('Failed to setup notifications after login:', e);
+      }
     } finally {
       set({ isLoading: false });
     }
@@ -59,7 +63,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       setTokens(accessToken, refreshToken);
       const { data } = await client.get<User>('/auth/me');
       set({ user: data, isAuthenticated: true });
-      setupNotifications();
+      try {
+        setupNotifications();
+      } catch (e) {
+        console.warn('Failed to setup notifications after session restore:', e);
+      }
     } catch {
       clearTokens();
       await EncryptedStorage.removeItem('access_token').catch(() => {});
@@ -77,7 +85,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { data } = await client.get<User>('/auth/me');
       set({ user: data, isAuthenticated: true });
-      setupNotifications();
+      try {
+        setupNotifications();
+      } catch (e) {
+        console.warn('Failed to setup notifications after token restore:', e);
+      }
     } catch {
       clearTokens();
       set({ user: null, isAuthenticated: false });

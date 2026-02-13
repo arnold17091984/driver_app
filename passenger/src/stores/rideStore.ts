@@ -6,9 +6,11 @@ interface RideState {
   currentRide: Dispatch | null;
   rideHistory: Dispatch[];
   driverLocation: VehicleLocation | null;
+  driverLocationStale: boolean;
   isRequesting: boolean;
   isLoadingHistory: boolean;
   pollingInterval: ReturnType<typeof setInterval> | null;
+  _pollFailureCount: number;
 
   requestRide: (
     pickupAddress: string,
@@ -32,9 +34,11 @@ export const useRideStore = create<RideState>((set, get) => ({
   currentRide: null,
   rideHistory: [],
   driverLocation: null,
+  driverLocationStale: false,
   isRequesting: false,
   isLoadingHistory: false,
   pollingInterval: null,
+  _pollFailureCount: 0,
 
   requestRide: async (
     pickupAddress,
@@ -100,16 +104,23 @@ export const useRideStore = create<RideState>((set, get) => ({
     // Stop any existing polling
     get().stopPolling();
 
+    // Reset failure counter when starting new polling
+    set({_pollFailureCount: 0, driverLocationStale: false});
+
     const fetchLocation = async () => {
       try {
         const res = await client.get(
           `/passenger/rides/${rideId}/driver-location`,
         );
         if (res.data) {
-          set({driverLocation: res.data});
+          set({driverLocation: res.data, _pollFailureCount: 0, driverLocationStale: false});
         }
       } catch {
-        // Silently ignore polling errors
+        const count = get()._pollFailureCount + 1;
+        set({
+          _pollFailureCount: count,
+          driverLocationStale: count >= 3,
+        });
       }
     };
 
@@ -129,6 +140,6 @@ export const useRideStore = create<RideState>((set, get) => ({
 
   clearCurrentRide: () => {
     get().stopPolling();
-    set({currentRide: null, driverLocation: null});
+    set({currentRide: null, driverLocation: null, driverLocationStale: false, _pollFailureCount: 0});
   },
 }));

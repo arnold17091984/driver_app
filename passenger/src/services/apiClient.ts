@@ -1,7 +1,11 @@
 import axios from 'axios';
 import {Platform} from 'react-native';
 
-const DEFAULT_HOST = __DEV__ ? '192.168.90.133' : 'localhost';
+const DEFAULT_HOST = __DEV__
+  ? Platform.OS === 'android'
+    ? '10.0.2.2'
+    : 'localhost'
+  : 'localhost';
 
 let apiBase = `http://${DEFAULT_HOST}:8080/api/v1`;
 

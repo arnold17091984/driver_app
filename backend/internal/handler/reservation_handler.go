@@ -3,7 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -57,17 +56,22 @@ func (h *ReservationHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *ReservationHandler) List(w http.ResponseWriter, r *http.Request) {
 	vehicleID := r.URL.Query().Get("vehicle_id")
 	status := r.URL.Query().Get("status")
-	fromStr := r.URL.Query().Get("from")
-	toStr := r.URL.Query().Get("to")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	var from, to time.Time
-	if fromStr != "" {
-		from, _ = time.Parse(time.RFC3339, fromStr)
+	limit, ok := parseIntParam(w, r, "limit", 0)
+	if !ok {
+		return
 	}
-	if toStr != "" {
-		to, _ = time.Parse(time.RFC3339, toStr)
+	offset, ok := parseIntParam(w, r, "offset", 0)
+	if !ok {
+		return
+	}
+	from, ok := parseTimeParam(w, r, "from")
+	if !ok {
+		return
+	}
+	to, ok := parseTimeParam(w, r, "to")
+	if !ok {
+		return
 	}
 
 	reservations, err := h.reservationSvc.List(r.Context(), vehicleID, from, to, status, limit, offset)

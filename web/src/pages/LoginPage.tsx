@@ -38,7 +38,7 @@ export function LoginPage() {
       justifyContent: 'center',
       alignItems: 'center',
     }}>
-      <div style={{ width: 400, padding: '0 20px' }}>
+      <div style={{ maxWidth: 400, width: '100%', padding: '0 20px' }}>
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{

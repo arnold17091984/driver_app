@@ -3,8 +3,6 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/middleware"
@@ -90,21 +88,27 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	actorID := r.URL.Query().Get("actor_id")
 	action := r.URL.Query().Get("action")
 	targetType := r.URL.Query().Get("target_type")
-	fromStr := r.URL.Query().Get("from")
-	toStr := r.URL.Query().Get("to")
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+
+	limit, ok := parseIntParam(w, r, "limit", 50)
+	if !ok {
+		return
+	}
+	offset, ok := parseIntParam(w, r, "offset", 0)
+	if !ok {
+		return
+	}
+
+	from, ok := parseTimeParam(w, r, "from")
+	if !ok {
+		return
+	}
+	to, ok := parseTimeParam(w, r, "to")
+	if !ok {
+		return
+	}
 
 	if limit <= 0 {
 		limit = 50
-	}
-
-	var from, to time.Time
-	if fromStr != "" {
-		from, _ = time.Parse(time.RFC3339, fromStr)
-	}
-	if toStr != "" {
-		to, _ = time.Parse(time.RFC3339, toStr)
 	}
 
 	logs, err := h.auditSvc.List(r.Context(), actorID, action, targetType, from, to, limit, offset)

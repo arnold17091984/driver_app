@@ -2,6 +2,7 @@
  * Location Service with Background Support
  *
  * iOS: Uses Background Mode "location" + Always authorization
+ *   - Sends location on each watchPosition callback, throttled to 15s intervals
  * Android: Uses react-native-background-actions for foreground service
  *
  * Sends location updates to the backend every 15 seconds while tracking is active.
@@ -24,6 +25,10 @@ let lastPosition: {
   speed: number;
   accuracy: number;
 } | null = null;
+
+// Throttle: track when we last sent to avoid sending too frequently
+let lastSentAt = 0;
+const SEND_INTERVAL_MS = 15000;
 
 // ── Permission Handling ──
 
@@ -53,7 +58,7 @@ async function requestBackgroundPermission(): Promise<boolean> {
     return true;
   }
   // Android 10+ requires separate background permission
-  if (Platform.Version >= 29) {
+  if (Number(Platform.Version) >= 29) {
     const granted = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
       {
@@ -80,6 +85,11 @@ export async function configureBackgroundLocation() {
 
 // ── Location Watching ──
 
+/**
+ * Start watching position. On each position update, throttle-send to backend.
+ * This keeps the iOS background location active (watchPosition callbacks
+ * wake the app) without needing a separate setInterval.
+ */
 function startWatchingPosition() {
   if (watchId !== null) return;
 
@@ -92,6 +102,13 @@ function startWatchingPosition() {
         speed: position.coords.speed ?? 0,
         accuracy: position.coords.accuracy,
       };
+
+      // Throttled send: only send if enough time has passed
+      const now = Date.now();
+      if (now - lastSentAt >= SEND_INTERVAL_MS && getAccessToken()) {
+        lastSentAt = now;
+        sendLocation(lastPosition);
+      }
     },
     (error) => console.warn('[Location] Watch error:', error.message),
     {
@@ -161,26 +178,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// ── iOS Background Loop ──
-
-let iosIntervalId: ReturnType<typeof setInterval> | null = null;
-
-function startIOSBackgroundLoop() {
-  if (iosIntervalId !== null) return;
-  iosIntervalId = setInterval(() => {
-    if (lastPosition && getAccessToken()) {
-      sendLocation(lastPosition);
-    }
-  }, 15000);
-}
-
-function stopIOSBackgroundLoop() {
-  if (iosIntervalId !== null) {
-    clearInterval(iosIntervalId);
-    iosIntervalId = null;
-  }
-}
-
 // ── Public API ──
 
 export async function startTracking() {
@@ -203,12 +200,11 @@ export async function startTracking() {
     } catch (err: any) {
       console.warn('[Location] Background service failed, falling back to foreground:', err.message);
       startWatchingPosition();
-      startIOSBackgroundLoop();
     }
   } else {
     // iOS: watchPosition continues in background with Background Mode enabled
+    // Throttled sending happens inside the watchPosition callback
     startWatchingPosition();
-    startIOSBackgroundLoop();
     console.log('[Location] iOS background tracking started');
   }
 }
@@ -219,8 +215,8 @@ export async function stopTracking() {
   }
 
   stopWatchingPosition();
-  stopIOSBackgroundLoop();
   lastPosition = null;
+  lastSentAt = 0;
   console.log('[Location] Tracking stopped');
 }
 

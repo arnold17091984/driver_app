@@ -17,6 +17,14 @@ import (
 	"github.com/kento/driver/backend/pkg/apperror"
 )
 
+// allowedMIMESignatures maps file extensions to their magic byte signatures.
+var allowedMIMESignatures = map[string][][]byte{
+	".jpg":  {{0xFF, 0xD8, 0xFF}},
+	".jpeg": {{0xFF, 0xD8, 0xFF}},
+	".png":  {{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}},
+	".webp": {{'R', 'I', 'F', 'F'}}, // RIFF header; full check includes "WEBP" at offset 8
+}
+
 type VehicleHandler struct {
 	vehicleSvc  vehicleService
 	locationSvc locationService
@@ -142,11 +150,21 @@ func (h *VehicleHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Validate file type
+	// Validate file extension
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
 		apperror.WriteError(w, apperror.ErrBadRequest)
 		return
+	}
+
+	// Validate magic bytes match declared extension
+	if !validateMagicBytes(file, ext) {
+		apperror.WriteErrorMsg(w, 400, "INVALID_FILE", "file content does not match declared type")
+		return
+	}
+	// Seek back to start after reading magic bytes
+	if seeker, ok := file.(io.Seeker); ok {
+		seeker.Seek(0, io.SeekStart)
 	}
 
 	// Ensure upload directory exists
@@ -156,10 +174,9 @@ func (h *VehicleHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete old photo if exists
+	// Delete old photo if exists (safe: uses only basename)
 	if vehicle.PhotoURL != nil {
-		oldPath := filepath.Join(h.uploadDir, "..", *vehicle.PhotoURL)
-		os.Remove(oldPath)
+		h.safeDeleteOldPhoto(*vehicle.PhotoURL)
 	}
 
 	// Save new file
@@ -185,6 +202,72 @@ func (h *VehicleHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apperror.WriteSuccess(w, map[string]string{"photo_url": photoURL})
+}
+
+// safeDeleteOldPhoto removes an old photo file using only the base filename,
+// preventing path traversal attacks.
+func (h *VehicleHandler) safeDeleteOldPhoto(photoURL string) {
+	// Extract just the filename from the URL path
+	base := filepath.Base(photoURL)
+	if base == "." || base == "/" || base == ".." {
+		return
+	}
+
+	fullPath := filepath.Join(h.uploadDir, "vehicles", base)
+
+	// Verify the resolved path is within the upload directory
+	absUpload, err := filepath.Abs(filepath.Join(h.uploadDir, "vehicles"))
+	if err != nil {
+		return
+	}
+	absTarget, err := filepath.Abs(fullPath)
+	if err != nil {
+		return
+	}
+	if !strings.HasPrefix(absTarget, absUpload+string(filepath.Separator)) && absTarget != absUpload {
+		return
+	}
+
+	os.Remove(fullPath)
+}
+
+// validateMagicBytes reads the first bytes of a file and checks them against
+// the expected magic bytes for the given extension.
+func validateMagicBytes(r io.Reader, ext string) bool {
+	sigs, ok := allowedMIMESignatures[ext]
+	if !ok {
+		return false
+	}
+
+	// Read enough bytes to check the longest signature
+	maxLen := 0
+	for _, sig := range sigs {
+		if len(sig) > maxLen {
+			maxLen = len(sig)
+		}
+	}
+
+	buf := make([]byte, maxLen)
+	n, err := io.ReadFull(r, buf)
+	if err != nil && n < maxLen {
+		return false
+	}
+
+	for _, sig := range sigs {
+		if n >= len(sig) {
+			match := true
+			for i, b := range sig {
+				if buf[i] != b {
+					match = false
+					break
+				}
+			}
+			if match {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (h *VehicleHandler) ToggleMaintenance(w http.ResponseWriter, r *http.Request) {

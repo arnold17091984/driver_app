@@ -186,6 +186,13 @@ func (r *DispatchRepo) SaveETASnapshot(ctx context.Context, snap *model.Dispatch
 	return err
 }
 
+func (r *DispatchRepo) RateDispatch(ctx context.Context, dispatchID string, rating int, comment string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE dispatches SET rating = $1, rating_comment = $2, updated_at = NOW()
+		WHERE id = $3`, rating, comment, dispatchID)
+	return err
+}
+
 func (r *DispatchRepo) GetETASnapshots(ctx context.Context, dispatchID string) ([]model.DispatchETASnapshot, error) {
 	var snapshots []model.DispatchETASnapshot
 	err := r.db.SelectContext(ctx, &snapshots, `

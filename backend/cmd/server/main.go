@@ -15,7 +15,10 @@ func main() {
 	// Load .env file (ignore error if not found)
 	_ = godotenv.Load()
 
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
 
 	srv, err := server.New(cfg)
 	if err != nil {
