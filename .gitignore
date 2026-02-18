@@ -50,6 +50,9 @@ npm-debug.log*
 # Claude Code
 CLAUDE.md
 
+# Worktrees
+.worktrees/
+
 # Firebase
 google-services.json
 GoogleService-Info.plist
