@@ -1,6 +1,6 @@
 import {create} from 'zustand';
 import {client} from '../services/apiClient';
-import type {Dispatch, VehicleLocation, BookingResponse} from '../types';
+import type {Dispatch, VehicleLocation, BookingResponse, VehicleETA} from '../types';
 
 interface RideState {
   currentRide: Dispatch | null;
@@ -11,6 +11,9 @@ interface RideState {
   isLoadingHistory: boolean;
   pollingInterval: ReturnType<typeof setInterval> | null;
   _pollFailureCount: number;
+  nearbyVehicles: VehicleETA[];
+  selectedVehicle: VehicleETA | null;
+  isLoadingVehicles: boolean;
 
   requestRide: (
     pickupAddress: string,
@@ -20,6 +23,7 @@ interface RideState {
     dropoffLat?: number,
     dropoffLng?: number,
     passengerName?: string,
+    vehicleId?: string,
   ) => Promise<void>;
   cancelRide: (rideId: string) => Promise<void>;
   fetchCurrentRide: () => Promise<void>;
@@ -28,6 +32,8 @@ interface RideState {
   pollDriverLocation: (rideId: string) => void;
   stopPolling: () => void;
   clearCurrentRide: () => void;
+  fetchNearbyVehicles: (pickupLat: number, pickupLng: number) => Promise<void>;
+  selectVehicle: (vehicle: VehicleETA | null) => void;
 }
 
 export const useRideStore = create<RideState>((set, get) => ({
@@ -39,6 +45,28 @@ export const useRideStore = create<RideState>((set, get) => ({
   isLoadingHistory: false,
   pollingInterval: null,
   _pollFailureCount: 0,
+  nearbyVehicles: [],
+  selectedVehicle: null,
+  isLoadingVehicles: false,
+
+  fetchNearbyVehicles: async (pickupLat, pickupLng) => {
+    set({isLoadingVehicles: true, nearbyVehicles: [], selectedVehicle: null});
+    try {
+      const res = await client.post('/passenger/rides/nearby-vehicles', {
+        pickup_lat: pickupLat,
+        pickup_lng: pickupLng,
+      });
+      set({nearbyVehicles: res.data || []});
+    } catch {
+      set({nearbyVehicles: []});
+    } finally {
+      set({isLoadingVehicles: false});
+    }
+  },
+
+  selectVehicle: (vehicle) => {
+    set({selectedVehicle: vehicle});
+  },
 
   requestRide: async (
     pickupAddress,
@@ -48,10 +76,11 @@ export const useRideStore = create<RideState>((set, get) => ({
     dropoffLat,
     dropoffLng,
     passengerName,
+    vehicleId,
   ) => {
     set({isRequesting: true});
     try {
-      const res = await client.post<BookingResponse>('/passenger/rides', {
+      const body: Record<string, unknown> = {
         pickup_address: pickupAddress,
         pickup_lat: pickupLat,
         pickup_lng: pickupLng,
@@ -60,9 +89,13 @@ export const useRideStore = create<RideState>((set, get) => ({
         dropoff_lng: dropoffLng,
         passenger_name: passengerName || '',
         passenger_count: 1,
-      });
+      };
+      if (vehicleId) {
+        body.vehicle_id = vehicleId;
+      }
+      const res = await client.post<BookingResponse>('/passenger/rides', body);
       if (res.data.dispatch) {
-        set({currentRide: res.data.dispatch});
+        set({currentRide: res.data.dispatch, nearbyVehicles: [], selectedVehicle: null});
       }
     } finally {
       set({isRequesting: false});

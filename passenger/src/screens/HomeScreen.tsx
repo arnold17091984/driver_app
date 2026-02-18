@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   Animated,
   Keyboard,
+  FlatList,
 } from 'react-native';
 import MapView, {Marker, PROVIDER_DEFAULT} from 'react-native-maps';
 import {useRideStore} from '../stores/rideStore';
 import {useAuthStore} from '../stores/authStore';
 import {getCurrentPosition} from '../services/locationService';
 import type {NativeStackScreenProps} from '@react-navigation/native-stack';
+import type {VehicleETA} from '../types';
 
 type AppStackParamList = {
   Home: undefined;
@@ -39,8 +41,15 @@ export default function HomeScreen({navigation}: Props) {
   const isRequesting = useRideStore(s => s.isRequesting);
   const requestRide = useRideStore(s => s.requestRide);
   const fetchCurrentRide = useRideStore(s => s.fetchCurrentRide);
+  const nearbyVehicles = useRideStore(s => s.nearbyVehicles);
+  const selectedVehicle = useRideStore(s => s.selectedVehicle);
+  const isLoadingVehicles = useRideStore(s => s.isLoadingVehicles);
+  const fetchNearbyVehicles = useRideStore(s => s.fetchNearbyVehicles);
+  const selectVehicle = useRideStore(s => s.selectVehicle);
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
+
+  const [sheetStep, setSheetStep] = useState<'destination' | 'vehicles'>('destination');
 
   useEffect(() => {
     getCurrentPosition().then(coords => {
@@ -82,7 +91,7 @@ export default function HomeScreen({navigation}: Props) {
     }).start(() => setShowSheet(false));
   }, [sheetAnim]);
 
-  const handleRequestRide = async () => {
+  const handleSearchVehicles = async () => {
     if (!userLocation) {
       Alert.alert('Error', 'Unable to determine your location');
       return;
@@ -91,6 +100,14 @@ export default function HomeScreen({navigation}: Props) {
       Alert.alert('Error', 'Please enter a destination');
       return;
     }
+    Keyboard.dismiss();
+    await fetchNearbyVehicles(userLocation.latitude, userLocation.longitude);
+    setSheetStep('vehicles');
+  };
+
+  const handleSelectVehicle = async (vehicle: VehicleETA) => {
+    if (!userLocation) return;
+    selectVehicle(vehicle);
     try {
       await requestRide(
         'Current Location',
@@ -100,15 +117,32 @@ export default function HomeScreen({navigation}: Props) {
         undefined,
         undefined,
         user?.name,
+        vehicle.vehicle_id,
       );
       closeSheet();
       setDropoffAddress('');
+      setSheetStep('destination');
     } catch (err: any) {
       Alert.alert(
         'Error',
         err.response?.data?.error?.message || 'Failed to request ride',
       );
     }
+  };
+
+  const handleBackToDestination = () => {
+    setSheetStep('destination');
+    selectVehicle(null);
+  };
+
+  const formatETA = (seconds: number) => {
+    const mins = Math.round(seconds / 60);
+    return mins <= 1 ? '1 min' : `${mins} min`;
+  };
+
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) return `${meters} m`;
+    return `${(meters / 1000).toFixed(1)} km`;
   };
 
   const sheetTranslateY = sheetAnim.interpolate({
@@ -119,26 +153,31 @@ export default function HomeScreen({navigation}: Props) {
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_DEFAULT}
-        showsUserLocation
-        showsMyLocationButton
-        initialRegion={{
-          latitude: userLocation?.latitude ?? 35.6812,
-          longitude: userLocation?.longitude ?? 139.7671,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }}>
-        {userLocation && (
+      {userLocation ? (
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_DEFAULT}
+          showsUserLocation
+          showsMyLocationButton
+          initialRegion={{
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }}>
           <Marker
             coordinate={userLocation}
             title="Your Location"
             pinColor="#2563eb"
           />
-        )}
-      </MapView>
+        </MapView>
+      ) : (
+        <View style={[styles.map, styles.mapLoading]}>
+          <ActivityIndicator size="large" color="#16a34a" />
+          <Text style={styles.mapLoadingText}>Getting your location...</Text>
+        </View>
+      )}
 
       {/* Stats overlay (like web dashboard) */}
       <View style={styles.statsOverlay}>
@@ -190,53 +229,102 @@ export default function HomeScreen({navigation}: Props) {
           <View style={styles.sheetHeader}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={closeSheet}
+              onPress={sheetStep === 'vehicles' ? handleBackToDestination : closeSheet}
               activeOpacity={0.7}>
-              <Text style={styles.backButtonText}>✕</Text>
+              <Text style={styles.backButtonText}>{sheetStep === 'vehicles' ? '<' : '✕'}</Text>
             </TouchableOpacity>
-            <Text style={styles.sheetTitle}>Request a Ride</Text>
+            <Text style={styles.sheetTitle}>
+              {sheetStep === 'destination' ? 'Request a Ride' : 'Select Vehicle'}
+            </Text>
             <View style={{width: 32}} />
           </View>
 
-          {/* Location inputs (like web BookingOverlay) */}
-          <View style={styles.locationContainer}>
-            <View style={styles.dotsColumn}>
-              <View style={[styles.locationDot, {backgroundColor: '#16a34a'}]} />
-              <View style={styles.locationLine} />
-              <View style={[styles.locationDot, {backgroundColor: '#ef4444'}]} />
-            </View>
-            <View style={styles.inputsColumn}>
-              <View style={styles.locationField}>
-                <Text style={styles.locationActive}>Current Location</Text>
+          {sheetStep === 'destination' ? (
+            <>
+              {/* Location inputs */}
+              <View style={styles.locationContainer}>
+                <View style={styles.dotsColumn}>
+                  <View style={[styles.locationDot, {backgroundColor: '#16a34a'}]} />
+                  <View style={styles.locationLine} />
+                  <View style={[styles.locationDot, {backgroundColor: '#ef4444'}]} />
+                </View>
+                <View style={styles.inputsColumn}>
+                  <View style={styles.locationField}>
+                    <Text style={styles.locationActive}>Current Location</Text>
+                  </View>
+                  <View style={styles.locationDivider} />
+                  <TextInput
+                    style={styles.locationInput}
+                    placeholder="Enter destination address"
+                    placeholderTextColor="#94a3b8"
+                    value={dropoffAddress}
+                    onChangeText={setDropoffAddress}
+                    autoFocus
+                  />
+                </View>
               </View>
-              <View style={styles.locationDivider} />
-              <TextInput
-                style={styles.locationInput}
-                placeholder="Enter destination address"
-                placeholderTextColor="#94a3b8"
-                value={dropoffAddress}
-                onChangeText={setDropoffAddress}
-                autoFocus
-              />
-            </View>
-          </View>
 
-          {/* Request button (like web "Book Vehicle" CTA) */}
-          <TouchableOpacity
-            style={[
-              styles.requestButton,
-              (!dropoffAddress.trim() || isRequesting) &&
-                styles.requestButtonDisabled,
-            ]}
-            onPress={handleRequestRide}
-            disabled={!dropoffAddress.trim() || isRequesting}
-            activeOpacity={0.8}>
-            {isRequesting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.requestButtonText}>Request Ride</Text>
-            )}
-          </TouchableOpacity>
+              {/* Search vehicles button */}
+              <TouchableOpacity
+                style={[
+                  styles.requestButton,
+                  (!dropoffAddress.trim() || isLoadingVehicles) &&
+                    styles.requestButtonDisabled,
+                ]}
+                onPress={handleSearchVehicles}
+                disabled={!dropoffAddress.trim() || isLoadingVehicles}
+                activeOpacity={0.8}>
+                {isLoadingVehicles ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.requestButtonText}>Search Vehicles</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              {/* Vehicle list */}
+              {isLoadingVehicles ? (
+                <View style={styles.vehicleLoading}>
+                  <ActivityIndicator size="large" color="#16a34a" />
+                  <Text style={styles.vehicleLoadingText}>Finding nearby vehicles...</Text>
+                </View>
+              ) : nearbyVehicles.length === 0 ? (
+                <View style={styles.vehicleLoading}>
+                  <Text style={styles.noVehiclesText}>No vehicles available nearby</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={nearbyVehicles.filter(v => v.is_available)}
+                  keyExtractor={item => item.vehicle_id}
+                  style={styles.vehicleList}
+                  renderItem={({item}) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.vehicleCard,
+                        selectedVehicle?.vehicle_id === item.vehicle_id && styles.vehicleCardSelected,
+                      ]}
+                      onPress={() => handleSelectVehicle(item)}
+                      disabled={isRequesting}
+                      activeOpacity={0.7}>
+                      <View style={styles.vehicleInfo}>
+                        <Text style={styles.vehicleName}>{item.vehicle_name}</Text>
+                        <Text style={styles.vehicleDriver}>{item.driver_name}</Text>
+                        <Text style={styles.vehiclePlate}>{item.plate}</Text>
+                      </View>
+                      <View style={styles.vehicleEta}>
+                        <Text style={styles.vehicleEtaTime}>{formatETA(item.duration_sec)}</Text>
+                        <Text style={styles.vehicleEtaDist}>{formatDistance(item.distance_m)}</Text>
+                      </View>
+                      {isRequesting && selectedVehicle?.vehicle_id === item.vehicle_id && (
+                        <ActivityIndicator size="small" color="#16a34a" style={styles.vehicleSpinner} />
+                      )}
+                    </TouchableOpacity>
+                  )}
+                />
+              )}
+            </>
+          )}
         </Animated.View>
       )}
     </View>
@@ -250,6 +338,16 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapLoading: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e2e8f0',
+    gap: 12,
+  },
+  mapLoadingText: {
+    color: '#64748b',
+    fontSize: 14,
   },
   statsOverlay: {
     position: 'absolute',
@@ -450,5 +548,73 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  vehicleLoading: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  vehicleLoadingText: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  noVehiclesText: {
+    color: '#94a3b8',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  vehicleList: {
+    maxHeight: 300,
+    paddingHorizontal: 20,
+    marginTop: 8,
+  },
+  vehicleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleCardSelected: {
+    borderColor: '#16a34a',
+    backgroundColor: '#f0fdf4',
+  },
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  vehicleDriver: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+  },
+  vehiclePlate: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  vehicleEta: {
+    alignItems: 'flex-end',
+    marginLeft: 12,
+  },
+  vehicleEtaTime: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  vehicleEtaDist: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  vehicleSpinner: {
+    marginLeft: 8,
   },
 });

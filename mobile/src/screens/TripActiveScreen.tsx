@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import Geolocation from '@react-native-community/geolocation';
 import { useTripStore } from '../stores/tripStore';
 import type { DispatchStatus } from '../types';
 
@@ -12,10 +14,40 @@ const STEPS: { status: DispatchStatus; label: string }[] = [
 
 export function TripActiveScreen({ navigation }: any) {
   const { currentTrip, fetchCurrentTrip, startEnRoute, markArrived, completeTrip } = useTripStore();
+  const [driverLocation, setDriverLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   useEffect(() => {
     fetchCurrentTrip();
   }, [fetchCurrentTrip]);
+
+  useEffect(() => {
+    Geolocation.getCurrentPosition(
+      (pos) => {
+        setDriverLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+
+    const watchId = Geolocation.watchPosition(
+      (pos) => {
+        setDriverLocation({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true, distanceFilter: 20 },
+    );
+
+    return () => Geolocation.clearWatch(watchId);
+  }, []);
 
   if (!currentTrip) {
     return (
@@ -69,102 +101,166 @@ export function TripActiveScreen({ navigation }: any) {
 
   const nextAction = getNextAction();
 
+  const pickupCoord = currentTrip.pickup_lat && currentTrip.pickup_lng
+    ? { latitude: currentTrip.pickup_lat, longitude: currentTrip.pickup_lng }
+    : null;
+  const dropoffCoord = currentTrip.dropoff_lat && currentTrip.dropoff_lng
+    ? { latitude: currentTrip.dropoff_lat, longitude: currentTrip.dropoff_lng }
+    : null;
+
+  const mapCenter = driverLocation || pickupCoord;
+
   return (
     <View style={styles.container}>
-      {/* Progress Stepper */}
-      <View style={styles.stepper}>
-        {STEPS.map((step, index) => (
-          <View key={step.status} style={styles.stepItem}>
-            <View
-              style={[
-                styles.stepCircle,
-                index <= currentStepIndex ? styles.stepActive : styles.stepInactive,
-              ]}
-            >
-              <Text style={styles.stepNumber}>{index + 1}</Text>
-            </View>
-            <Text
-              style={[
-                styles.stepLabel,
-                index <= currentStepIndex ? styles.stepLabelActive : styles.stepLabelInactive,
-              ]}
-            >
-              {step.label}
-            </Text>
-            {index < STEPS.length - 1 && (
+      {/* Map */}
+      {mapCenter ? (
+        <MapView
+          style={styles.map}
+          provider={PROVIDER_DEFAULT}
+          showsUserLocation
+          initialRegion={{
+            ...mapCenter,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          }}>
+          {pickupCoord && (
+            <Marker
+              coordinate={pickupCoord}
+              title="乗車地点"
+              description={currentTrip.pickup_address}
+              pinColor="#16a34a"
+            />
+          )}
+          {dropoffCoord && (
+            <Marker
+              coordinate={dropoffCoord}
+              title="降車地点"
+              description={currentTrip.dropoff_address}
+              pinColor="#ef4444"
+            />
+          )}
+        </MapView>
+      ) : (
+        <View style={[styles.map, styles.mapLoading]}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={styles.mapLoadingText}>位置情報を取得中...</Text>
+        </View>
+      )}
+
+      {/* Bottom panel */}
+      <View style={styles.bottomPanel}>
+        {/* Progress Stepper */}
+        <View style={styles.stepper}>
+          {STEPS.map((step, index) => (
+            <View key={step.status} style={styles.stepItem}>
               <View
                 style={[
-                  styles.stepLine,
-                  index < currentStepIndex ? styles.stepLineActive : styles.stepLineInactive,
+                  styles.stepCircle,
+                  index <= currentStepIndex ? styles.stepActive : styles.stepInactive,
                 ]}
-              />
-            )}
-          </View>
-        ))}
-      </View>
-
-      {/* Trip Info */}
-      <View style={styles.infoCard}>
-        <Text style={styles.purpose}>{currentTrip.purpose}</Text>
-        <View style={styles.addressRow}>
-          <Text style={styles.addressIcon}>📍</Text>
-          <Text style={styles.addressText}>{currentTrip.pickup_address}</Text>
+              >
+                <Text style={styles.stepNumber}>{index + 1}</Text>
+              </View>
+              <Text
+                style={[
+                  styles.stepLabel,
+                  index <= currentStepIndex ? styles.stepLabelActive : styles.stepLabelInactive,
+                ]}
+              >
+                {step.label}
+              </Text>
+              {index < STEPS.length - 1 && (
+                <View
+                  style={[
+                    styles.stepLine,
+                    index < currentStepIndex ? styles.stepLineActive : styles.stepLineInactive,
+                  ]}
+                />
+              )}
+            </View>
+          ))}
         </View>
-        {currentTrip.dropoff_address && (
+
+        {/* Trip Info */}
+        <View style={styles.infoCard}>
+          <Text style={styles.purpose}>{currentTrip.purpose}</Text>
           <View style={styles.addressRow}>
-            <Text style={styles.addressIcon}>🏁</Text>
-            <Text style={styles.addressText}>{currentTrip.dropoff_address}</Text>
+            <Text style={styles.addressDot}>●</Text>
+            <Text style={styles.addressText}>{currentTrip.pickup_address}</Text>
           </View>
-        )}
-        {currentTrip.passenger_name && (
-          <Text style={styles.passenger}>
-            乗客: {currentTrip.passenger_name}
-          </Text>
+          {currentTrip.dropoff_address && (
+            <View style={styles.addressRow}>
+              <Text style={[styles.addressDot, {color: '#ef4444'}]}>●</Text>
+              <Text style={styles.addressText}>{currentTrip.dropoff_address}</Text>
+            </View>
+          )}
+          {currentTrip.passenger_name && (
+            <Text style={styles.passenger}>
+              乗客: {currentTrip.passenger_name}
+            </Text>
+          )}
+        </View>
+
+        {/* Action Button */}
+        {nextAction.label !== '' && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: nextAction.color }]}
+            onPress={handleNext}
+          >
+            <Text style={styles.actionButtonText}>{nextAction.label}</Text>
+          </TouchableOpacity>
         )}
       </View>
-
-      {/* Action Button */}
-      {nextAction.label && (
-        <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: nextAction.color }]}
-          onPress={handleNext}
-        >
-          <Text style={styles.actionButtonText}>{nextAction.label}</Text>
-        </TouchableOpacity>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9', padding: 20 },
+  container: { flex: 1, backgroundColor: '#f1f5f9' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { color: '#94a3b8', fontSize: 16 },
+  map: {
+    flex: 2,
+  },
+  mapLoading: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e2e8f0',
+    gap: 8,
+  },
+  mapLoadingText: {
+    color: '#64748b',
+    fontSize: 14,
+  },
+  bottomPanel: {
+    flex: 3,
+    padding: 16,
+  },
   stepper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 12,
   },
   stepItem: { alignItems: 'center', flex: 1 },
   stepCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   stepActive: { backgroundColor: '#3b82f6' },
   stepInactive: { backgroundColor: '#e2e8f0' },
-  stepNumber: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  stepNumber: { color: '#fff', fontWeight: '700', fontSize: 13 },
   stepLabel: { fontSize: 11, marginTop: 4, fontWeight: '500' },
   stepLabelActive: { color: '#3b82f6' },
   stepLabelInactive: { color: '#94a3b8' },
   stepLine: {
     position: 'absolute',
-    top: 18,
+    top: 16,
     left: '60%',
     right: '-40%',
     height: 2,
@@ -174,17 +270,17 @@ const styles = StyleSheet.create({
   infoCard: {
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 12,
   },
-  purpose: { fontSize: 20, fontWeight: '700', color: '#1e293b', marginBottom: 16 },
-  addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  addressIcon: { fontSize: 16, marginRight: 8 },
-  addressText: { fontSize: 15, color: '#475569', flex: 1 },
-  passenger: { fontSize: 14, color: '#64748b', marginTop: 8 },
+  purpose: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 12 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  addressDot: { fontSize: 10, marginRight: 8, color: '#16a34a' },
+  addressText: { fontSize: 14, color: '#475569', flex: 1 },
+  passenger: { fontSize: 13, color: '#64748b', marginTop: 6 },
   actionButton: {
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 18,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -192,5 +288,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  actionButtonText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  actionButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });

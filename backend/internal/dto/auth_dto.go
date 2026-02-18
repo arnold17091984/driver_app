@@ -51,4 +51,5 @@ type PassengerRideRequest struct {
 	DropoffLng     *float64 `json:"dropoff_lng,omitempty"`
 	PassengerName  string   `json:"passenger_name,omitempty"`
 	PassengerCount int      `json:"passenger_count,omitempty"`
+	VehicleID      *string  `json:"vehicle_id,omitempty"`
 }

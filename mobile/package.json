@@ -19,6 +19,7 @@
     "react": "19.0.0",
     "react-native": "0.78.0",
     "react-native-background-actions": "^4.0.1",
+    "react-native-maps": "^1.18.0",
     "react-native-encrypted-storage": "^4.0.0",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.13.1",

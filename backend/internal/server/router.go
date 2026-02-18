@@ -148,6 +148,7 @@ func buildRouter(
 				r.Use(middleware.RequireRole("passenger"))
 
 				r.Post("/passenger/rides", passengerH.RequestRide)
+				r.Post("/passenger/rides/nearby-vehicles", passengerH.GetNearbyVehicles)
 				r.Get("/passenger/rides/current", passengerH.GetCurrentRide)
 				r.Get("/passenger/rides/history", passengerH.GetRideHistory)
 				r.Post("/passenger/rides/{id}/cancel", passengerH.CancelRide)

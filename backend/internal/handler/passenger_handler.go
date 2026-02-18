@@ -81,6 +81,37 @@ func (h *PassengerHandler) Login(w http.ResponseWriter, r *http.Request) {
 	apperror.WriteSuccess(w, resp)
 }
 
+func (h *PassengerHandler) GetNearbyVehicles(w http.ResponseWriter, r *http.Request) {
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		apperror.WriteError(w, apperror.ErrUnauthorized)
+		return
+	}
+
+	var req dto.CalculateETARequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		apperror.WriteError(w, apperror.ErrBadRequest)
+		return
+	}
+
+	if !isValidGPSCoord(req.PickupLat, req.PickupLng) {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "pickup_lat and pickup_lng must be valid GPS coordinates")
+		return
+	}
+
+	vehicles, err := h.dispatchSvc.CalculateETAs(r.Context(), req.PickupLat, req.PickupLng)
+	if err != nil {
+		if appErr, ok := err.(*apperror.AppError); ok {
+			apperror.WriteError(w, appErr)
+			return
+		}
+		apperror.WriteError(w, apperror.ErrInternal)
+		return
+	}
+
+	apperror.WriteSuccess(w, vehicles)
+}
+
 func (h *PassengerHandler) RequestRide(w http.ResponseWriter, r *http.Request) {
 	claims := middleware.GetClaims(r.Context())
 	if claims == nil {
@@ -110,8 +141,15 @@ func (h *PassengerHandler) RequestRide(w http.ResponseWriter, r *http.Request) {
 	if req.DropoffAddress != "" {
 		destinations = []string{req.DropoffAddress}
 	}
+
+	mode := "any"
+	if req.VehicleID != nil {
+		mode = "specific"
+	}
+
 	bookingReq := dto.UnifiedBookingRequest{
-		Mode:          "any",
+		Mode:          mode,
+		VehicleID:     req.VehicleID,
 		IsNow:         true,
 		PickupAddress: req.PickupAddress,
 		PickupLat:     pickupLat,

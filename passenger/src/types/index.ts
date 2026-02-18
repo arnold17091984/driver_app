@@ -70,3 +70,16 @@ export interface BookingResponse {
   dispatch?: Dispatch;
   reservation?: unknown;
 }
+
+export interface VehicleETA {
+  vehicle_id: string;
+  vehicle_name: string;
+  driver_name: string;
+  plate: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  distance_m: number;
+  duration_sec: number;
+  is_available: boolean;
+}
