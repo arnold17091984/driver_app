@@ -1,14 +1,17 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import EncryptedStorage from 'react-native-encrypted-storage';
 
-// iOS Simulator uses localhost, Android emulator uses 10.0.2.2
-// For real devices, set to your Mac's local IP address
+// In development, connect to local backend over HTTP (emulator/simulator).
+// In production, always use HTTPS. Never allow cleartext traffic in release builds.
 const DEFAULT_HOST = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-let apiBase = `http://${DEFAULT_HOST}:8080`;
+const DEFAULT_SCHEME = __DEV__ ? 'http' : 'https';
+let apiBase = `${DEFAULT_SCHEME}://${DEFAULT_HOST}:8080`;
 
-// Override for real device testing
+// Override for real device testing (dev only).
 export function setApiBase(host: string) {
-  apiBase = `http://${host}:8080`;
+  const scheme = __DEV__ ? 'http' : 'https';
+  apiBase = `${scheme}://${host}:8080`;
   client.defaults.baseURL = `${apiBase}/api/v1`;
 }
 export function getApiBase() {
@@ -57,6 +60,9 @@ client.interceptors.response.use(
           refresh_token: refreshToken,
         });
         accessToken = data.access_token;
+        // Persist the new access token to encrypted storage so it survives
+        // app restarts and is not stored in plain-text (M22).
+        await EncryptedStorage.setItem('access_token', accessToken as string);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return client(originalRequest);
       } catch {

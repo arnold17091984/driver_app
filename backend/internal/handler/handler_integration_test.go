@@ -3,10 +3,12 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kento/driver/backend/internal/dto"
@@ -849,7 +851,8 @@ func TestLocationReport_Success(t *testing.T) {
 	}
 	h := &LocationHandler{locationSvc: lMock, vehicleSvc: vMock}
 
-	body := `{"points":[{"latitude":14.5547,"longitude":121.0244,"recorded_at":"2026-01-01T00:00:00Z"}]}`
+	recentTime := time.Now().UTC().Format(time.RFC3339)
+	body := fmt.Sprintf(`{"points":[{"latitude":14.5547,"longitude":121.0244,"recorded_at":"%s"}]}`, recentTime)
 	req := httptest.NewRequest("POST", "/api/v1/locations/report", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req = withClaims(req, "driver-1", "drv001", "driver")

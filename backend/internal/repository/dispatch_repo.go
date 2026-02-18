@@ -133,6 +133,32 @@ func (r *DispatchRepo) Cancel(ctx context.Context, id, reason string) error {
 	return err
 }
 
+func (r *DispatchRepo) ListByRequester(ctx context.Context, requesterID, status string, limit, offset int) ([]model.Dispatch, error) {
+	var dispatches []model.Dispatch
+	query := `
+		SELECT id, vehicle_id, requester_id, dispatcher_id, purpose, passenger_name,
+			passenger_count, notes, pickup_address,
+			ST_Y(pickup_location::geometry) AS pickup_lat,
+			ST_X(pickup_location::geometry) AS pickup_lng,
+			dropoff_address,
+			ST_Y(dropoff_location::geometry) AS dropoff_lat,
+			ST_X(dropoff_location::geometry) AS dropoff_lng,
+			status, estimated_duration_sec, estimated_distance_m, estimated_end_at,
+			assigned_at, accepted_at, en_route_at, arrived_at, completed_at, cancelled_at,
+			cancel_reason, created_at, updated_at
+		FROM dispatches WHERE requester_id = $1`
+
+	if status != "" {
+		query += ` AND status = $4`
+		query += ` ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+		err := r.db.SelectContext(ctx, &dispatches, query, requesterID, limit, offset, status)
+		return dispatches, err
+	}
+	query += ` ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+	err := r.db.SelectContext(ctx, &dispatches, query, requesterID, limit, offset)
+	return dispatches, err
+}
+
 func (r *DispatchRepo) GetActiveByVehicleID(ctx context.Context, vehicleID string) (*model.Dispatch, error) {
 	var d model.Dispatch
 	err := r.db.GetContext(ctx, &d, `

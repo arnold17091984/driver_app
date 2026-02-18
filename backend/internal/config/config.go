@@ -33,6 +33,8 @@ type Config struct {
 	CORSOrigins              []string
 	RateLimitRate            float64
 	RateLimitBurst           int
+	TLSCert                  string
+	TLSKey                   string
 }
 
 func Load() (*Config, error) {
@@ -40,7 +42,7 @@ func Load() (*Config, error) {
 		Port:                     getEnv("PORT", "8080"),
 		Env:                      getEnv("ENV", "development"),
 		DatabaseURL:              getEnv("DATABASE_URL", "postgres://driver:driver@localhost:5432/driver_db?sslmode=disable"),
-		JWTSecret:                getEnv("JWT_SECRET", "dev-secret-change-me"),
+		JWTSecret:                getEnv("JWT_SECRET", ""),
 		JWTAccessExpiry:          parseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m")),
 		JWTRefreshExpiry:         parseDuration(getEnv("JWT_REFRESH_EXPIRY", "168h")),
 		GoogleMapsAPIKey:         getEnv("GOOGLE_MAPS_API_KEY", ""),
@@ -48,9 +50,11 @@ func Load() (*Config, error) {
 		LocationStaleThreshold:   parseDuration(getEnv("LOCATION_STALE_THRESHOLD", "2m")),
 		LocationLogRetentionDays: 90,
 		ReservationReminderMin:   30,
-		CORSOrigins:              parseCORSOrigins(getEnv("CORS_ORIGINS", "*")),
+		CORSOrigins:              parseCORSOrigins(getEnv("CORS_ORIGINS", "http://localhost:5173")),
 		RateLimitRate:            parseFloat(getEnv("RATE_LIMIT_RATE", "20")),
 		RateLimitBurst:           parseInt(getEnv("RATE_LIMIT_BURST", "40")),
+		TLSCert:                  getEnv("TLS_CERT", ""),
+		TLSKey:                   getEnv("TLS_KEY", ""),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -61,6 +65,18 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	// JWT_SECRET is always required (no default fallback)
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET environment variable is required")
+	}
+
+	// Block known weak secrets in all environments
+	if knownWeakSecrets[c.JWTSecret] {
+		if c.Env == "production" {
+			return fmt.Errorf("production: JWT_SECRET is a known weak value; set a strong secret")
+		}
+	}
+
 	if c.Env != "production" {
 		return nil
 	}
@@ -79,6 +95,11 @@ func (c *Config) validate() error {
 	lower := strings.ToLower(c.DatabaseURL)
 	if strings.Contains(lower, "localhost") || strings.Contains(lower, "127.0.0.1") {
 		return fmt.Errorf("production: DATABASE_URL must not point to localhost")
+	}
+
+	// Production: require SSL for database connection
+	if strings.Contains(lower, "sslmode=disable") {
+		return fmt.Errorf("production: DATABASE_URL must not use sslmode=disable")
 	}
 
 	// Production: CORS wildcard not allowed

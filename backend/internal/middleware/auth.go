@@ -13,7 +13,12 @@ type contextKey string
 
 const ClaimsKey contextKey = "claims"
 
-func JWTAuth(secret string) func(http.Handler) http.Handler {
+// TokenBlacklist is an interface for checking token revocation.
+type TokenBlacklist interface {
+	IsBlacklisted(ctx context.Context, jti string) (bool, error)
+}
+
+func JWTAuth(secret string, blacklist ...TokenBlacklist) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -37,6 +42,15 @@ func JWTAuth(secret string) func(http.Handler) http.Handler {
 			if claims.TokenType != "access" {
 				apperror.WriteError(w, apperror.ErrUnauthorized)
 				return
+			}
+
+			// Check token blacklist if available
+			if len(blacklist) > 0 && blacklist[0] != nil && claims.ID != "" {
+				revoked, err := blacklist[0].IsBlacklisted(r.Context(), claims.ID)
+				if err != nil || revoked {
+					apperror.WriteError(w, apperror.ErrUnauthorized)
+					return
+				}
 			}
 
 			ctx := context.WithValue(r.Context(), ClaimsKey, claims)

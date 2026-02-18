@@ -152,6 +152,9 @@ func (h *DispatchHandler) List(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
 
 	dispatches, err := h.dispatchSvc.List(r.Context(), status, limit, offset)
 	if err != nil {

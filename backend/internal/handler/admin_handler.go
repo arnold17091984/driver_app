@@ -73,6 +73,11 @@ func (h *AdminHandler) UpdatePriority(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.PriorityLevel < 0 || req.PriorityLevel > 10 {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "priority_level must be between 0 and 10")
+		return
+	}
+
 	before, _ := h.userRepo.GetByID(r.Context(), id)
 	if err := h.userRepo.UpdatePriority(r.Context(), id, req.PriorityLevel); err != nil {
 		apperror.WriteError(w, apperror.ErrInternal)
@@ -107,7 +112,7 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
 

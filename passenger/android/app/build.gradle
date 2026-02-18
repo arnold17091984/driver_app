@@ -57,7 +57,7 @@ react {
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = true
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
@@ -84,6 +84,9 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // TODO (C5 - Task 7): Replace with the real API key value from your secure secrets store
+        // (e.g. environment variable, CI secret, or local.properties). Never commit the actual key.
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: System.getenv("GOOGLE_MAPS_API_KEY") ?: "YOUR_GOOGLE_MAPS_API_KEY"]
     }
     signingConfigs {
         debug {
@@ -98,8 +101,11 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
+            // TODO (C5): This currently uses the debug keystore which MUST NOT be used in
+            // production. Before releasing to the Play Store, create a production keystore,
+            // add a 'release' signingConfig block with credentials loaded from
+            // local.properties or environment variables, and point signingConfig here to
+            // signingConfigs.release. See https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"

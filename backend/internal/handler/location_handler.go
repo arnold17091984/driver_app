@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/kento/driver/backend/internal/middleware"
 	"github.com/kento/driver/backend/internal/model"
@@ -40,6 +41,24 @@ func (h *LocationHandler) Report(w http.ResponseWriter, r *http.Request) {
 	if len(req.Points) == 0 {
 		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "at least one location point is required")
 		return
+	}
+
+	if len(req.Points) > 100 {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "batch size must not exceed 100 points")
+		return
+	}
+
+	// Validate each point
+	now := time.Now()
+	for _, p := range req.Points {
+		if !isValidGPSCoord(p.Latitude, p.Longitude) {
+			apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "each point must have valid GPS coordinates")
+			return
+		}
+		if !p.RecordedAt.IsZero() && now.Sub(p.RecordedAt) > 24*time.Hour {
+			apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "recorded_at must be within the last 24 hours")
+			return
+		}
 	}
 
 	if err := h.locationSvc.ReportLocations(r.Context(), vehicle.ID, req.Points); err != nil {

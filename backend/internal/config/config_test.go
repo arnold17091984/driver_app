@@ -21,6 +21,8 @@ func clearEnv() {
 
 func TestLoadDefaults(t *testing.T) {
 	clearEnv()
+	os.Setenv("JWT_SECRET", "test-dev-secret")
+	defer os.Unsetenv("JWT_SECRET")
 
 	cfg, err := Load()
 	if err != nil {
@@ -48,14 +50,26 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ReservationReminderMin != 30 {
 		t.Errorf("ReservationReminderMin = %d, want %d", cfg.ReservationReminderMin, 30)
 	}
-	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "*" {
-		t.Errorf("CORSOrigins = %v, want [*]", cfg.CORSOrigins)
+	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "http://localhost:5173" {
+		t.Errorf("CORSOrigins = %v, want [http://localhost:5173]", cfg.CORSOrigins)
 	}
 	if cfg.RateLimitRate != 20 {
 		t.Errorf("RateLimitRate = %v, want 20", cfg.RateLimitRate)
 	}
 	if cfg.RateLimitBurst != 40 {
 		t.Errorf("RateLimitBurst = %v, want 40", cfg.RateLimitBurst)
+	}
+}
+
+func TestLoadMissingJWTSecret(t *testing.T) {
+	clearEnv()
+	// JWT_SECRET not set, should fail
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for missing JWT_SECRET")
+	}
+	if !strings.Contains(err.Error(), "JWT_SECRET") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
@@ -103,8 +117,9 @@ func TestLoadFromEnv(t *testing.T) {
 
 func TestParseDurationInvalid(t *testing.T) {
 	clearEnv()
+	os.Setenv("JWT_SECRET", "test-dev-secret")
 	os.Setenv("JWT_ACCESS_EXPIRY", "not-a-duration")
-	defer os.Unsetenv("JWT_ACCESS_EXPIRY")
+	defer clearEnv()
 
 	cfg, err := Load()
 	if err != nil {
@@ -183,6 +198,8 @@ func TestProductionWildcardCORS(t *testing.T) {
 
 func TestDevelopmentAllowsWeakConfig(t *testing.T) {
 	clearEnv()
+	os.Setenv("JWT_SECRET", "test-dev-secret")
+	defer os.Unsetenv("JWT_SECRET")
 	// Default ENV=development should pass even with weak defaults
 	cfg, err := Load()
 	if err != nil {

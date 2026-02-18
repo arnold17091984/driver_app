@@ -74,6 +74,10 @@ func (h *ReservationHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
 	reservations, err := h.reservationSvc.List(r.Context(), vehicleID, from, to, status, limit, offset)
 	if err != nil {
 		apperror.WriteError(w, apperror.ErrInternal)

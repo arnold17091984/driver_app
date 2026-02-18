@@ -10,11 +10,19 @@ import (
 )
 
 type AuthHandler struct {
-	authSvc authService
+	authSvc      authService
+	tokenSvc     tokenService
+	loginLimiter loginLimiter
 }
 
-func NewAuthHandler(authSvc authService) *AuthHandler {
-	return &AuthHandler{authSvc: authSvc}
+type loginLimiter interface {
+	IsLocked(account string) bool
+	RecordFailure(account string)
+	RecordSuccess(account string)
+}
+
+func NewAuthHandler(authSvc authService, tokenSvc tokenService, ll loginLimiter) *AuthHandler {
+	return &AuthHandler{authSvc: authSvc, tokenSvc: tokenSvc, loginLimiter: ll}
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -29,8 +37,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check brute-force lockout
+	if h.loginLimiter != nil && h.loginLimiter.IsLocked(req.EmployeeID) {
+		apperror.WriteErrorMsg(w, http.StatusTooManyRequests, "ACCOUNT_LOCKED", "too many failed login attempts; try again later")
+		return
+	}
+
 	resp, err := h.authSvc.Login(r.Context(), req)
 	if err != nil {
+		if h.loginLimiter != nil {
+			h.loginLimiter.RecordFailure(req.EmployeeID)
+		}
 		if appErr, ok := err.(*apperror.AppError); ok {
 			apperror.WriteError(w, appErr)
 			return
@@ -39,6 +56,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.loginLimiter != nil {
+		h.loginLimiter.RecordSuccess(req.EmployeeID)
+	}
 	apperror.WriteSuccess(w, resp)
 }
 
@@ -85,7 +105,16 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// For JWT-based auth, logout is handled client-side by discarding the token.
-	// Refresh token invalidation would require a blocklist (future enhancement).
+	claims := middleware.GetClaims(r.Context())
+	if claims == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Blacklist the current access token
+	if claims.ID != "" && claims.ExpiresAt != nil {
+		_ = h.tokenSvc.Blacklist(r.Context(), claims.ID, claims.UserID, claims.ExpiresAt.Time)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }

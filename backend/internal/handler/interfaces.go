@@ -23,6 +23,7 @@ type dispatchService interface {
 	QuickBoard(ctx context.Context, req dto.QuickBoardRequest, dispatcherID string) (*model.Dispatch, error)
 	GetByID(ctx context.Context, id string) (*model.Dispatch, error)
 	List(ctx context.Context, status string, limit, offset int) ([]model.Dispatch, error)
+	ListByRequester(ctx context.Context, requesterID, status string, limit, offset int) ([]model.Dispatch, error)
 	Assign(ctx context.Context, dispatchID, vehicleID, dispatcherID string) error
 	UpdateStatus(ctx context.Context, dispatchID string, status model.DispatchStatus, actorID string) error
 	Cancel(ctx context.Context, dispatchID, reason, actorID string) error
@@ -104,4 +105,9 @@ type routeComputer interface {
 type passengerAuthService interface {
 	RegisterPassenger(ctx context.Context, req dto.PassengerRegisterRequest) (*dto.LoginResponse, error)
 	LoginByPhone(ctx context.Context, req dto.PassengerLoginRequest) (*dto.LoginResponse, error)
+}
+
+type tokenService interface {
+	Blacklist(ctx context.Context, jti, userID string, expiresAt time.Time) error
+	IsBlacklisted(ctx context.Context, jti string) (bool, error)
 }

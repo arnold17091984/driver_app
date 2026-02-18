@@ -45,6 +45,7 @@ type mockDispatchSvc struct {
 	quickBoardFn        func(ctx context.Context, req dto.QuickBoardRequest, dispatcherID string) (*model.Dispatch, error)
 	getByIDFn           func(ctx context.Context, id string) (*model.Dispatch, error)
 	listFn              func(ctx context.Context, status string, limit, offset int) ([]model.Dispatch, error)
+	listByRequesterFn   func(ctx context.Context, requesterID, status string, limit, offset int) ([]model.Dispatch, error)
 	assignFn            func(ctx context.Context, dispatchID, vehicleID, dispatcherID string) error
 	updateStatusFn      func(ctx context.Context, dispatchID string, status model.DispatchStatus, actorID string) error
 	cancelFn            func(ctx context.Context, dispatchID, reason, actorID string) error
@@ -78,6 +79,13 @@ func (m *mockDispatchSvc) GetByID(ctx context.Context, id string) (*model.Dispat
 func (m *mockDispatchSvc) List(ctx context.Context, status string, limit, offset int) ([]model.Dispatch, error) {
 	if m.listFn != nil {
 		return m.listFn(ctx, status, limit, offset)
+	}
+	return nil, nil
+}
+
+func (m *mockDispatchSvc) ListByRequester(ctx context.Context, requesterID, status string, limit, offset int) ([]model.Dispatch, error) {
+	if m.listByRequesterFn != nil {
+		return m.listByRequesterFn(ctx, requesterID, status, limit, offset)
 	}
 	return nil, nil
 }
@@ -403,6 +411,54 @@ func (m *mockBookingSvc) GetPendingByDriverID(ctx context.Context, driverID stri
 		return m.getPendingByDriverIDFn(ctx, driverID)
 	}
 	return nil, nil
+}
+
+// ── Mock: tokenService ──
+
+type mockTokenSvc struct {
+	blacklistFn    func(ctx context.Context, jti, userID string, expiresAt time.Time) error
+	isBlacklistedFn func(ctx context.Context, jti string) (bool, error)
+}
+
+func (m *mockTokenSvc) Blacklist(ctx context.Context, jti, userID string, expiresAt time.Time) error {
+	if m.blacklistFn != nil {
+		return m.blacklistFn(ctx, jti, userID, expiresAt)
+	}
+	return nil
+}
+
+func (m *mockTokenSvc) IsBlacklisted(ctx context.Context, jti string) (bool, error) {
+	if m.isBlacklistedFn != nil {
+		return m.isBlacklistedFn(ctx, jti)
+	}
+	return false, nil
+}
+
+// ── Mock: loginLimiter ──
+
+type mockLoginLimiter struct {
+	isLockedFn      func(account string) bool
+	recordFailureFn func(account string)
+	recordSuccessFn func(account string)
+}
+
+func (m *mockLoginLimiter) IsLocked(account string) bool {
+	if m.isLockedFn != nil {
+		return m.isLockedFn(account)
+	}
+	return false
+}
+
+func (m *mockLoginLimiter) RecordFailure(account string) {
+	if m.recordFailureFn != nil {
+		m.recordFailureFn(account)
+	}
+}
+
+func (m *mockLoginLimiter) RecordSuccess(account string) {
+	if m.recordSuccessFn != nil {
+		m.recordSuccessFn(account)
+	}
 }
 
 // ── Mock: passengerAuthService ──

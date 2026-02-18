@@ -125,3 +125,49 @@ func TestTokenExpiryIsSet(t *testing.T) {
 		t.Errorf("token expiry duration = %v, want ~%v", diff, expiry)
 	}
 }
+
+func TestTokenHasJTI(t *testing.T) {
+	token, _ := GenerateAccessToken(testSecret, 15*time.Minute, "user-1", "emp001", "admin")
+	claims, _ := Parse(token, testSecret)
+
+	if claims.ID == "" {
+		t.Fatal("expected JTI (ID) to be set")
+	}
+}
+
+func TestTokenHasIssuerAudienceSubject(t *testing.T) {
+	token, _ := GenerateAccessToken(testSecret, 15*time.Minute, "user-1", "emp001", "admin")
+	claims, _ := Parse(token, testSecret)
+
+	if claims.Issuer != Issuer {
+		t.Errorf("Issuer = %q, want %q", claims.Issuer, Issuer)
+	}
+	if claims.Subject != "user-1" {
+		t.Errorf("Subject = %q, want %q", claims.Subject, "user-1")
+	}
+	aud := claims.Audience
+	if len(aud) != 1 || aud[0] != Audience {
+		t.Errorf("Audience = %v, want [%q]", aud, Audience)
+	}
+}
+
+func TestTokenHasNotBefore(t *testing.T) {
+	token, _ := GenerateAccessToken(testSecret, 15*time.Minute, "user-1", "emp001", "admin")
+	claims, _ := Parse(token, testSecret)
+
+	if claims.NotBefore == nil {
+		t.Fatal("expected NotBefore to be set")
+	}
+}
+
+func TestTokenJTIsAreUnique(t *testing.T) {
+	t1, _ := GenerateAccessToken(testSecret, 15*time.Minute, "user-1", "emp001", "admin")
+	t2, _ := GenerateAccessToken(testSecret, 15*time.Minute, "user-1", "emp001", "admin")
+
+	c1, _ := Parse(t1, testSecret)
+	c2, _ := Parse(t2, testSecret)
+
+	if c1.ID == c2.ID {
+		t.Error("two tokens should have different JTI values")
+	}
+}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestPassenger_Register_MissingFields(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	body := `{"phone_number":"","password":"","name":""}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -26,8 +26,21 @@ func TestPassenger_Register_MissingFields(t *testing.T) {
 }
 
 func TestPassenger_Register_InvalidPhone(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
-	body := `{"phone_number":"abc","password":"pass123","name":"Test"}`
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
+	body := `{"phone_number":"abc","password":"password123","name":"Test"}`
+	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	h.Register(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+}
+
+func TestPassenger_Register_ShortPassword(t *testing.T) {
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
+	body := `{"phone_number":"+639123456789","password":"pass12","name":"Test"}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 
@@ -39,8 +52,8 @@ func TestPassenger_Register_InvalidPhone(t *testing.T) {
 }
 
 func TestPassenger_Register_Success(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
-	body := `{"phone_number":"+639123456789","password":"pass123","name":"Test"}`
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
+	body := `{"phone_number":"+639123456789","password":"password123","name":"Test"}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 
@@ -52,7 +65,7 @@ func TestPassenger_Register_Success(t *testing.T) {
 }
 
 func TestPassenger_Login_MissingFields(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	body := `{"phone_number":"","password":""}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -65,7 +78,7 @@ func TestPassenger_Login_MissingFields(t *testing.T) {
 }
 
 func TestPassenger_RequestRide_InvalidGPS(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	body := `{"pickup_address":"123 St","pickup_lat":999,"pickup_lng":0}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	req = withClaims(req, "user1", "pass1", "passenger")
@@ -79,7 +92,7 @@ func TestPassenger_RequestRide_InvalidGPS(t *testing.T) {
 }
 
 func TestPassenger_RequestRide_MissingAddress(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	body := `{"pickup_address":"","pickup_lat":14.5,"pickup_lng":121.0}`
 	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
 	req = withClaims(req, "user1", "pass1", "passenger")
@@ -93,7 +106,7 @@ func TestPassenger_RequestRide_MissingAddress(t *testing.T) {
 }
 
 func TestPassenger_RateRide_InvalidRating(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	// Need to set up a dispatch that belongs to this user
 	h.dispatchSvc = &mockDispatchSvc{
 		getByIDFn: func(_ context.Context, id string) (*model.Dispatch, error) {
@@ -115,7 +128,7 @@ func TestPassenger_RateRide_InvalidRating(t *testing.T) {
 }
 
 func TestPassenger_GetCurrentRide_NoClaims(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	req := httptest.NewRequest("GET", "/rides/current", nil)
 	rec := httptest.NewRecorder()
 
@@ -127,7 +140,7 @@ func TestPassenger_GetCurrentRide_NoClaims(t *testing.T) {
 }
 
 func TestPassenger_GetRideHistory_InvalidLimit(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 	req := httptest.NewRequest("GET", "/rides/history?limit=abc", nil)
 	req = withClaims(req, "user1", "pass1", "passenger")
 	rec := httptest.NewRecorder()
@@ -146,7 +159,7 @@ func TestPassenger_GetNearbyVehicles_Success(t *testing.T) {
 				{VehicleID: "v-1", VehicleName: "Car A", DriverName: "Driver 1", DurationSec: 300, IsAvailable: true},
 			}, nil
 		},
-	}, &mockLocationSvc{}, &mockBookingSvc{})
+	}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 
 	body := `{"pickup_lat":35.6812,"pickup_lng":139.7671}`
 	req := httptest.NewRequest("POST", "/passenger/rides/nearby-vehicles", strings.NewReader(body))
@@ -167,7 +180,7 @@ func TestPassenger_GetNearbyVehicles_Success(t *testing.T) {
 }
 
 func TestPassenger_GetNearbyVehicles_InvalidCoords(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 
 	body := `{"pickup_lat":999,"pickup_lng":0}`
 	req := httptest.NewRequest("POST", "/passenger/rides/nearby-vehicles", strings.NewReader(body))
@@ -182,7 +195,7 @@ func TestPassenger_GetNearbyVehicles_InvalidCoords(t *testing.T) {
 }
 
 func TestPassenger_GetNearbyVehicles_NoClaims(t *testing.T) {
-	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{})
+	h := NewPassengerHandler(&mockPassengerAuthSvc{}, &mockDispatchSvc{}, &mockLocationSvc{}, &mockBookingSvc{}, &mockLoginLimiter{})
 
 	body := `{"pickup_lat":35.6812,"pickup_lng":139.7671}`
 	req := httptest.NewRequest("POST", "/passenger/rides/nearby-vehicles", strings.NewReader(body))
@@ -202,7 +215,7 @@ func TestPassenger_RequestRide_WithVehicleID(t *testing.T) {
 			capturedReq = req
 			return &dto.UnifiedBookingResponse{Type: "dispatch", Dispatch: &model.Dispatch{ID: "d1"}}, nil
 		},
-	})
+	}, &mockLoginLimiter{})
 
 	body := `{"pickup_address":"123 St","pickup_lat":35.6812,"pickup_lng":139.7671,"vehicle_id":"v-1"}`
 	req := httptest.NewRequest("POST", "/passenger/rides", strings.NewReader(body))
@@ -229,7 +242,7 @@ func TestPassenger_RequestRide_WithoutVehicleID(t *testing.T) {
 			capturedReq = req
 			return &dto.UnifiedBookingResponse{Type: "dispatch"}, nil
 		},
-	})
+	}, &mockLoginLimiter{})
 
 	body := `{"pickup_address":"123 St","pickup_lat":35.6812,"pickup_lng":139.7671}`
 	req := httptest.NewRequest("POST", "/passenger/rides", strings.NewReader(body))

@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
@@ -11,8 +12,20 @@ import (
 	"github.com/kento/driver/backend/internal/middleware"
 )
 
+// noDirectoryListing wraps a file server to return 404 for directory paths.
+func noDirectoryListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") || r.URL.Path == "" {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func buildRouter(
 	cfg *config.Config,
+	tokenBlacklist middleware.TokenBlacklist,
 	authH *handler.AuthHandler,
 	vehicleH *handler.VehicleHandler,
 	dispatchH *handler.DispatchHandler,
@@ -33,6 +46,8 @@ func buildRouter(
 	r.Use(chiMiddleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(chiMiddleware.Recoverer)
+	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.MaxBodySize(1 << 20)) // 1 MB
 	r.Use(middleware.NewCORS(cfg.CORSOrigins))
 	r.Use(middleware.NewRateLimiter(cfg.RateLimitRate, cfg.RateLimitBurst).Limit)
 
@@ -41,9 +56,8 @@ func buildRouter(
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
-	// Static file serving for uploads
-	fileServer := http.FileServer(http.Dir("./uploads"))
-	r.Handle("/uploads/*", http.StripPrefix("/uploads", fileServer))
+	// Static file serving for uploads (directory listing disabled)
+	r.Handle("/uploads/*", http.StripPrefix("/uploads", noDirectoryListing(http.FileServer(http.Dir("./uploads")))))
 
 	// API documentation (Swagger UI)
 	r.Get("/api/docs", handler.SwaggerUI)
@@ -60,7 +74,7 @@ func buildRouter(
 
 		// Authenticated routes
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.JWTAuth(cfg.JWTSecret))
+			r.Use(middleware.JWTAuth(cfg.JWTSecret, tokenBlacklist))
 
 			// Auth
 			r.Get("/auth/me", authH.Me)

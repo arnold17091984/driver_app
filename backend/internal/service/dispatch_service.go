@@ -126,6 +126,13 @@ func (s *DispatchService) List(ctx context.Context, status string, limit, offset
 	return s.repo.List(ctx, status, limit, offset)
 }
 
+func (s *DispatchService) ListByRequester(ctx context.Context, requesterID, status string, limit, offset int) ([]model.Dispatch, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	return s.repo.ListByRequester(ctx, requesterID, status, limit, offset)
+}
+
 func (s *DispatchService) Assign(ctx context.Context, dispatchID, vehicleID, dispatcherID string) error {
 	before, err := s.repo.GetByID(ctx, dispatchID)
 	if err != nil {

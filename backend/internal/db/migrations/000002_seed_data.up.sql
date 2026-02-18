@@ -1,4 +1,6 @@
--- Seed data for development
+-- Seed data for development ONLY.
+-- WARNING: These users use a well-known password and must NOT exist in production.
+-- The application will refuse to start in production if these users are active.
 -- Password for all users: "password123" (bcrypt hash)
 -- $2a$10$XYof2X4G00pN9LmpwyM/z.nuHsRZFIN23/JRJ9gNHdSRSHipwQRVe
 

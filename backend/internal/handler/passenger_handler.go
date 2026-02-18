@@ -16,14 +16,24 @@ type PassengerHandler struct {
 	dispatchSvc  dispatchService
 	locationSvc  locationService
 	bookingSvc   bookingService
+	loginLimiter interface {
+		IsLocked(account string) bool
+		RecordFailure(account string)
+		RecordSuccess(account string)
+	}
 }
 
-func NewPassengerHandler(authSvc passengerAuthService, dispatchSvc dispatchService, locationSvc locationService, bookingSvc bookingService) *PassengerHandler {
+func NewPassengerHandler(authSvc passengerAuthService, dispatchSvc dispatchService, locationSvc locationService, bookingSvc bookingService, ll interface {
+	IsLocked(account string) bool
+	RecordFailure(account string)
+	RecordSuccess(account string)
+}) *PassengerHandler {
 	return &PassengerHandler{
-		authSvc:     authSvc,
-		dispatchSvc: dispatchSvc,
-		locationSvc: locationSvc,
-		bookingSvc:  bookingSvc,
+		authSvc:      authSvc,
+		dispatchSvc:  dispatchSvc,
+		locationSvc:  locationSvc,
+		bookingSvc:   bookingSvc,
+		loginLimiter: ll,
 	}
 }
 
@@ -40,6 +50,14 @@ func (h *PassengerHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if !isValidPhoneNumber(req.PhoneNumber) {
 		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "phone_number must be 7-15 digits, optionally starting with +")
+		return
+	}
+	if len(req.Password) < 8 {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "password must be at least 8 characters")
+		return
+	}
+	if len(req.Password) > 72 {
+		apperror.WriteErrorMsg(w, 400, "VALIDATION_ERROR", "password must be at most 72 characters")
 		return
 	}
 
@@ -68,8 +86,17 @@ func (h *PassengerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check brute-force lockout
+	if h.loginLimiter != nil && h.loginLimiter.IsLocked(req.PhoneNumber) {
+		apperror.WriteErrorMsg(w, http.StatusTooManyRequests, "ACCOUNT_LOCKED", "too many failed login attempts; try again later")
+		return
+	}
+
 	resp, err := h.authSvc.LoginByPhone(r.Context(), req)
 	if err != nil {
+		if h.loginLimiter != nil {
+			h.loginLimiter.RecordFailure(req.PhoneNumber)
+		}
 		if appErr, ok := err.(*apperror.AppError); ok {
 			apperror.WriteError(w, appErr)
 			return
@@ -78,6 +105,9 @@ func (h *PassengerHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.loginLimiter != nil {
+		h.loginLimiter.RecordSuccess(req.PhoneNumber)
+	}
 	apperror.WriteSuccess(w, resp)
 }
 
@@ -179,8 +209,8 @@ func (h *PassengerHandler) GetCurrentRide(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// List dispatches by requester_id (passenger's user ID) with active statuses
-	dispatches, err := h.dispatchSvc.List(r.Context(), "", 50, 0)
+	// Query dispatches by this specific requester only
+	dispatches, err := h.dispatchSvc.ListByRequester(r.Context(), claims.UserID, "", 50, 0)
 	if err != nil {
 		apperror.WriteError(w, apperror.ErrInternal)
 		return
@@ -188,8 +218,7 @@ func (h *PassengerHandler) GetCurrentRide(w http.ResponseWriter, r *http.Request
 
 	// Find the current active ride for this passenger
 	for _, d := range dispatches {
-		if d.RequesterID == claims.UserID &&
-			d.Status != "completed" && d.Status != "cancelled" {
+		if d.Status != "completed" && d.Status != "cancelled" {
 			apperror.WriteSuccess(w, d)
 			return
 		}
@@ -218,21 +247,14 @@ func (h *PassengerHandler) GetRideHistory(w http.ResponseWriter, r *http.Request
 		limit = 20
 	}
 
-	dispatches, err := h.dispatchSvc.List(r.Context(), "", limit, offset)
+	// Query only this passenger's dispatches using the proper filtered query
+	dispatches, err := h.dispatchSvc.ListByRequester(r.Context(), claims.UserID, "", limit, offset)
 	if err != nil {
 		apperror.WriteError(w, apperror.ErrInternal)
 		return
 	}
 
-	// Filter to this passenger's rides
-	var rides []interface{}
-	for _, d := range dispatches {
-		if d.RequesterID == claims.UserID {
-			rides = append(rides, d)
-		}
-	}
-
-	apperror.WriteSuccess(w, rides)
+	apperror.WriteSuccess(w, dispatches)
 }
 
 func (h *PassengerHandler) CancelRide(w http.ResponseWriter, r *http.Request) {

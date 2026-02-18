@@ -10,7 +10,7 @@ import (
 
 // TestLogin_EmptyBody tests that login rejects an empty request body.
 func TestLogin_EmptyBody(t *testing.T) {
-	h := &AuthHandler{authSvc: nil} // authSvc not needed for validation
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader("{}"))
 	req.Header.Set("Content-Type", "application/json")
@@ -36,7 +36,7 @@ func TestLogin_EmptyBody(t *testing.T) {
 
 // TestLogin_MissingPassword tests that login rejects when password is missing.
 func TestLogin_MissingPassword(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	body := `{"employee_id":"admin001"}`
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(body))
@@ -52,7 +52,7 @@ func TestLogin_MissingPassword(t *testing.T) {
 
 // TestLogin_MissingEmployeeID tests that login rejects when employee_id is missing.
 func TestLogin_MissingEmployeeID(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	body := `{"password":"password123"}`
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader(body))
@@ -68,7 +68,7 @@ func TestLogin_MissingEmployeeID(t *testing.T) {
 
 // TestLogin_InvalidJSON tests that login rejects invalid JSON.
 func TestLogin_InvalidJSON(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	req := httptest.NewRequest("POST", "/api/v1/auth/login", strings.NewReader("not json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -83,7 +83,7 @@ func TestLogin_InvalidJSON(t *testing.T) {
 
 // TestRefresh_InvalidJSON tests that refresh rejects invalid JSON.
 func TestRefresh_InvalidJSON(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	req := httptest.NewRequest("POST", "/api/v1/auth/refresh", strings.NewReader("bad"))
 	req.Header.Set("Content-Type", "application/json")
@@ -98,7 +98,7 @@ func TestRefresh_InvalidJSON(t *testing.T) {
 
 // TestLogout_ReturnsNoContent tests that logout returns 204.
 func TestLogout_ReturnsNoContent(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	req := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
 	rec := httptest.NewRecorder()
@@ -112,7 +112,7 @@ func TestLogout_ReturnsNoContent(t *testing.T) {
 
 // TestMe_NoClaims tests that /me returns 401 without claims in context.
 func TestMe_NoClaims(t *testing.T) {
-	h := &AuthHandler{authSvc: nil}
+	h := NewAuthHandler(nil, &mockTokenSvc{}, nil)
 
 	req := httptest.NewRequest("GET", "/api/v1/auth/me", nil)
 	rec := httptest.NewRecorder()

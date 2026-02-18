@@ -20,6 +20,5 @@ func SwaggerUI(w http.ResponseWriter, r *http.Request) {
 // OpenAPISpec serves the OpenAPI YAML spec.
 func OpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/x-yaml")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Write(openapiSpec)
 }

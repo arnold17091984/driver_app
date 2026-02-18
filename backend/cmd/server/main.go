@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/kento/driver/backend/internal/config"
@@ -31,11 +34,26 @@ func main() {
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 		<-sigCh
 		log.Println("shutting down server...")
-		srv.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("server shutdown error: %v", err)
+		}
 	}()
 
 	log.Printf("server starting on %s (env: %s)", srv.Addr, cfg.Env)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Printf("server stopped: %v", err)
+
+	var listenErr error
+	if cfg.TLSCert != "" && cfg.TLSKey != "" {
+		log.Println("TLS enabled")
+		listenErr = srv.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
+	} else {
+		if cfg.Env == "production" {
+			log.Println("WARNING: running without TLS in production")
+		}
+		listenErr = srv.ListenAndServe()
+	}
+	if listenErr != nil && listenErr != http.ErrServerClosed {
+		log.Printf("server stopped: %v", listenErr)
 	}
 }
